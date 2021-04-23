@@ -1,0 +1,24 @@
+---
+title: "Taller 2 Regresión"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(car)
+#library(perturb)
+library(leaps)
+library(olsrr)
+```
+
+```{r}
+#LEER DATOS EN archivo asignado a su grupo, as ́ı
+datos=read.table("APC1modifm3.csv",header=T,sep=";",dec=",",
+colClasses=c(rep("numeric",7),"factor",rep("numeric",3),"factor"))
+#CONSULTA DE NOMBRE DE VARIABLES EN OBJETO datos
+names(datos)
+```
+
