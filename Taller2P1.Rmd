@@ -9,6 +9,7 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ```{r}
 library(car)
+library(dplyr)
 #library(perturb)
 library(leaps)
 library(olsrr)
@@ -19,6 +20,45 @@ library(olsrr)
 datos=read.table("APC1modifm3.csv",header=T,sep=";",dec=",",
 colClasses=c(rep("numeric",7),"factor",rep("numeric",3),"factor"))
 #CONSULTA DE NOMBRE DE VARIABLES EN OBJETO datos
-names(datos)
+ 
+regresoras <- names(datos)[names(datos) != c("ID", "AEM", "REGION")] 
+numericas <- c(regresoras)
+regresoras <- paste(regresoras[2:length(regresoras)], collapse =" +")
+
+
+```
+
+```{r}
+
+rlm_formula = formula(paste(c("DPERM", regresoras), collapse = " ~ ") )
+(modelo <- lm(rlm_formula, data= datos))
+```
+
+```{r}
+summary(modelo)
+```
+## Coeficientes estandarizados:
+
+```{r}
+datos_estandarizados <- datos[, c(numericas)] %>% scale(center = TRUE, scale = TRUE) %>% data.frame()
+(modelo_estandarizado <- lm(rlm_formula, data = datos_estandarizados))
+```
+
+```{r}
+summary(modelo_estandarizado)
+```
+
+
+```{r}
+anova(modelo)
+```
+## Gráfico de residuales estudentizados vs Valores ajustados
+
+```{r}
+residualPlots(modelo, type = "rstudent", tests = FALSE, quadratic = FALSE, fit = TRUE)
+```
+
+```{r}
+
 ```
 
