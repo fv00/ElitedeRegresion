@@ -57,6 +57,12 @@ anova(modelo)
 ```{r}
 residualPlots(modelo, type = "rstudent", tests = FALSE, quadratic = FALSE, fit = TRUE)
 ```
+## QQPLOT DE LOS RESIDUALES
+```{r}
+ols_plot_resid_qq(model = modelo)
+```
+
+
 ## Tabla de todas las regresiones posibles:
 ```{r}
 regresiones  <- ols_step_all_possible(modelo)
