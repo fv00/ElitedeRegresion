@@ -1,0 +1,107 @@
+---
+title: "Trabajo RLM Parte I"
+author: "Alejandro Salazar Mejía"
+date: "10/5/2021"
+output: pdf_document
+---
+
+# Análisis Descriptivo
+
+```{r}
+library(plotrix)
+library(knitr)
+library(GGally)
+library(ggplot2)
+```
+
+```{r}
+datos <- read.table("APC1modifm3.csv", header = T, sep = ";", dec = ",",
+                    colClasses = c(rep("numeric",7),"factor",rep("numeric",3),"factor"))
+```
+
+```{r}
+str(datos)
+summary(datos)
+attach(datos)
+```
+
+Análisis de variables numéricas
+```{r}
+cond <- names(datos) != c("ID", "AEM", "REGION")
+numvar <- names(datos)[cond]
+tableList <- list()
+
+for (variable in numvar) {
+    currVar <- datos[variable][[1]]
+    Table <- data.frame(round(matrix(c(summary(currVar),sd(currVar)),ncol=7),2))
+    names(Table) <- c(names(summary(currVar)),"sd")
+    tableList[[variable]] <- list(Table,
+                               paste("Estadísticos de resumen para variable",
+                                     variable))
+    # print(Table)
+}
+
+kable( tableList[[1]][[1]] , caption = tableList[[1]][[2]])
+kable( tableList[[2]][[1]] , caption = tableList[[2]][[2]])
+kable( tableList[[3]][[1]] , caption = tableList[[3]][[2]])
+kable( tableList[[4]][[1]] , caption = tableList[[4]][[2]])
+kable( tableList[[5]][[1]] , caption = tableList[[5]][[2]])
+kable( tableList[[6]][[1]] , caption = tableList[[6]][[2]])
+kable( tableList[[7]][[1]] , caption = tableList[[7]][[2]])
+kable( tableList[[8]][[1]] , caption = tableList[[8]][[2]])
+kable( tableList[[9]][[1]] , caption = tableList[[9]][[2]])
+
+```
+
+```{r}
+datosNumericos <- datos[numvar]
+
+win.graph()
+ggpairs(datosNumericos, diag=list(continuous = wrap("densityDiag",color="red",
+                                        fill="lightgoldenrod1",alpha=0.3)),
+        lower = list(continuous = wrap("smooth", alpha = 0.3, size=0.1,method = "lm")),
+        upper = list(continuous = wrap("cor", stars = F)))
+
+gg2 <- ggpairs(datosNumericos, 
+               lower = list(continuous = wrap("smooth_loess", cex = 0.5) ), 
+               upper = list(continuous = "density"))
+for(i in 1:ncol(datosNumericos)){
+    gg2[i,i] <- gg2[i,i] +
+        geom_histogram(breaks=hist(datosNumericos[,i],breaks ="FD",plot=F)$breaks,
+                       colour ="red",fill="lightgoldenrod1")
+
+}
+win.graph()
+gg2
+```
+
+
+## Análisis de variables categóricas
+```{r}
+Table1 <-data.frame(t(summary(AEM)))
+colnames(Table1) <- c("Afiliados", "No Afiliados")
+kable(Table1, caption = "Hospitales afiliados a la escuela de medicina")
+
+Table2 <-data.frame(t(summary(REGION)))
+colnames(Table2) <- c("NE", "NC", "S", "W")
+kable(Table2, caption = "Hospitales en regiones geográficas")
+```
+
+
+## Análisis de variables numéricas agrupadas por variables categóricas
+```{r}
+win.graph()
+ggpairs(datos,columns = c(2:7,9:11),legend = c(1,1),mapping =aes(colour=AEM),
+        diag = list(continuous = wrap("box_no_facet")),
+        upper = list(continuous = wrap("cor", stars = F)),
+        lower = list(continuous = wrap("points", cex = 0.6, alpha = 0.5))) +
+    theme(legend.position="bottom")
+
+win.graph()
+ggpairs(datos,columns = c(2:7,9:11),legend = c(1,1),mapping =aes(colour=REGION),
+        diag = list(continuous = wrap("box_no_facet")),
+        upper = list(continuous = wrap("cor", stars = F, size = 2)),
+        lower = list(continuous = wrap("points", cex = 0.6, alpha = 0.5))) +
+    theme(legend.position="bottom")
+```
+
