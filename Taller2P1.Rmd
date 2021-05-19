@@ -137,6 +137,7 @@ residualPlots(modelo1, type = "rstudent", tests = FALSE, quadratic = FALSE, fit 
 ```{r}
 ols_plot_resid_qq(model = modelo1)
 ```
+
 ```{r}
 normalidad <- shapiro.test(modelo1$residuals)
 kable(t(normalidad[c("p.value" ,"statistic" )]))
@@ -217,16 +218,65 @@ Se presenta la tabla de parámetros ajustados:
 kable(summary(modelo2)$coefficients)
 ```
 
+### Gráfico de normalidad para los residuales estudentiszados:
 
-# Tabla de todas las regresiones posibles:
 ```{r}
-#regresiones  <- ols_step_all_possible(modelo)
+ols_plot_resid_qq(model = modelo2)
+```
+
+Se observa una notoria mejoría en la gráfica de normalidad de los residuales estudentizados respecto a la gráfica anterior.
+
+## Diagnósticos de multicolinealidad:
+
+### Diagnósticos de multicolinealidad mediante la Matriz de correlación de las variables predictoras:
+
+```{r}
+kable(cor(datos2[ , numericas]))
+```
+
+### Diagnósticos de multicolinealidad mediante los VIF's:
+
+```{r}
+kable(t(vif(modelo2)))
+```
+
+### Diagnósticos de multicolinealidad mediante las proporciones de varianza:
+
+```{r}
+ols_coll_diag(modelo2)
+```
+
+
+## Selección de modelo:
+
+### Tabla de todas las regresiones posibles:
+```{r}
+regresiones  <- ols_step_all_possible(modelo2)
 ```
 
 ```{r}
-#tabladeRegresiones <- as.data.frame(regresiones)
-#tabladeRegresiones %>% mutate(tabladeRegresiones, mse = regresiones$msep)
+head(regresiones)
 ```
 
 
+### Selección de modelo según el $R^2_{adj}$:
 
+
+
+### Selección de modelo según el estadístico $C_p$
+
+
+
+### Selección de modelo según el metodo Stepwise:
+
+ 
+### Selección mediante el metodo forward:
+
+### Selección mediante el método backward:
+
+
+## ¿Cuál modelo sugiere para la variable respuesta?
+
+
+
+ 
