@@ -1,22 +1,48 @@
 ---
 title: "Taller 2 Regresión"
-output: html_document
+output:
+  html_document: default
+  pdf_document: default
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+opts <- options(knitr.kable.NA = "")
+```
+
+
+```{r include= FALSE}
+myAnova <- function (lm.model){
+SSq <- unlist(anova(lm.model)["Sum Sq"])
+k <- length(SSq) - 1
+SSR <- sum(SSq[1:k])
+SSE <- SSq[(k + 1)]
+MSR <- SSR/k
+df.error <- unlist ( anova(lm.model )["Df"])[k + 1]
+MSE <- SSE /df.error
+F0 <- MSR / MSE
+PV <- pf(F0 , k, df.error , lower.tail = F)
+result <-data.frame(Sum_of_Squares = format(c(SSR , SSE ), digits = 6) ,
+                    DF = format(c(k, df.error ), digits = 6), 
+                    Mean_Square = format(c(MSR , MSE ), digits = 6) , 
+                    F_Value = c(format(F0 , digits = 6) ,''),
+                    P_value = c(format(PV , digits = 6) , ''), row.names = c(" Model ", " Error "))
+return <- result
+}
 ```
 
 ```{r}
 library(car)
 library(dplyr)
-#library(perturb)
+library(rsm)
 library(leaps)
 library(olsrr)
+library(knitr)
 ```
 
+
 ```{r}
-#LEER DATOS EN archivo asignado a su grupo, as ́ı
+#LEER DATOS EN archivo asignado a su grupo, así:
 datos=read.table("APC1modifm3.csv",header=T,sep=";",dec=",",
 colClasses=c(rep("numeric",7),"factor",rep("numeric",3),"factor"))
 #CONSULTA DE NOMBRE DE VARIABLES EN OBJETO datos
@@ -28,48 +54,179 @@ regresoras <- paste(regresoras[2:length(regresoras)], collapse =" +")
 
 ```
 
-```{r}
 
+## Ajuste de modelo de regresión lineal múltiple
+
+Se ajusta un modelo de regresión lineal multiple:
+
+```{r}
 rlm_formula = formula(paste(c("DPERM", regresoras), collapse = " ~ ") )
-(modelo <- lm(rlm_formula, data= datos))
+modelo1 <- lm(rlm_formula, data= datos)
+coeficientes_modelo1 <- modelo1$coefficients
 ```
 
+Se muestra la tabla de parámetros ajustados:
 ```{r}
-summary(modelo)
+kable(summary(modelo1)$coefficients)
 ```
+
+Se observa que se tienen 90 observaciones y k= 8 variables regresoras. Escribimos la ecuación ajustada:
+
+$\hat{Y_i}=-0.2084+0.1043X1+0.3352X2+0.0287X3+0.0209X4-0.0106X5+0.0223X6-0.006X7+0.0041X8$
+
+Calculamos la tabla ANOVA del modelo:
+
+```{r}
+kable(myAnova(modelo1))
+```
+
+De la tabla anova del modelo se concluye que el modelo es significativo ya que el valor p de la prueba de significancia de la regresión es menor a 0.05.
+
+
+```{r}
+kable(t(summary(modelo1)[c("r.squared", "adj.r.squared")]))
+```
+Del resumen del modelo se obtiene que el valor de $R^2$ es 0.5914, es decir que un 59.14\% de la variabilidad total de la variable respuesta es explicada por el modelo. Se opina que este porcentaje de la variabilidad tan "bajo" puede deberse a que alguna de las covariables no sea significativa o porque directamente no es adecuado suponer que existe una relación lineal entre la variable respuesta y las covariables númericas.
+
 ## Coeficientes estandarizados:
+
+Se calcula un modelo de regresión lineal multiple con las variables estándarizadas:
 
 ```{r}
 datos_estandarizados <- datos[, c(numericas)] %>% scale(center = TRUE, scale = TRUE) %>% data.frame()
-(modelo_estandarizado <- lm(rlm_formula, data = datos_estandarizados))
+modelo_estandarizado <- lm(rlm_formula, data = datos_estandarizados)
+```
+
+Se imprimen los coeficientes del modelo que incluye las variables estándarizadas:
+
+```{r}
+kable(t(modelo_estandarizado$coefficients))
+```
+De la tabla se concluye que la covariable que "más" aporta al modelo cuando los datos se encuentran estándarizados es la covariable "PDP".
+
+## Significancia individual de los parámetros del modelo:
+
+```{r}
+kable(summary(modelo1)$coefficients)
+```
+De la tabla anterior se concluye que los parámetros $\beta_1$ y $\beta_8$ no son significativos.
+
+
+## Sumas de cuadrados de tipo 1 y de tipo 2:
+
+### Sumas de cuadrados de tipo 1:
+
+```{r}
+kable(anova(modelo1)[1:2])
+```
+
+### Sumas de cuadrados de tipo II:
+
+```{r}
+kable(Anova(modelo1)[1:2])
+```
+
+## 5.Gráfico de residuales estudentizados vs Valores ajustados
+
+```{r}
+residualPlots(modelo1, type = "rstudent", tests = FALSE, quadratic = FALSE, fit = TRUE)
+```
+
+## Gráfica de probabilidad normal para los residuales estudentizados.
+
+```{r}
+ols_plot_resid_qq(model = modelo1)
+```
+```{r}
+normalidad <- shapiro.test(modelo1$residuals)
+kable(t(normalidad[c("p.value" ,"statistic" )]))
+```
+Según la gráfica anterior se observa un desajuste al inicio y al final de la gráfica que permite dudar sobre la hipótesis de normalidad sobre los errores del modelo.
+
+## Diagnóstico de la presencia de observaciones atípicas, de balanceo y/o influenciales.
+
+Se crea una tabla con las medidas de influencia:
+
+
+```{r}
+influencias_modelo1 <- influence.measures(modelo1)
+influencias_modelo1 <- (influencias_modelo1$infmat)
+influencias_modelo1 <- cbind(influencias_modelo1, std.res = rstandard(modelo1), stud.res = rstudent(modelo1))
+```
+
+### Observaciones atípicas mediante residuales estándarizados:
+
+```{r}
+which(abs(influencias_modelo1[,"std.res"])>3 )
+```
+
+Según los residuales estándarizados la observación 22 es una observación atípica potencial.
+
+### Observaciones atípicas mediante residuales estudentizados:
+
+```{r}
+which(abs(influencias_modelo1[,"stud.res"])>3 )
+```
+
+De nuevo se observa que según los residuales estudentizados la observación 22 es una observación potencialmente atípica.
+
+### Observaciones influyentes según las distancias de cook:
+
+```{r}
+which(influencias_modelo1[,"cook.d"] > 1)
+```
+Según el criterio de las distancias de cook no se tienen observaciones influyentes.
+
+### Observaciones influyentes según los DFBetas:
+
+Según el criterio de los DFBetas las siguientes observaciones son influyentes:
+
+```{r}
+influencias_modelo1 <- as.data.frame(influencias_modelo1)
+influenciales_dfbetas <- which(abs(influencias_modelo1[,1:9])> (2/sqrt(90)),arr.ind = TRUE)
+kable(influencias_modelo1[unique(influenciales_dfbetas[, "row"]), 1:9])
+```
+### Observaciones influenciales según los DFFITS:
+
+Según los dffits se tiene que las siguientes observaciones son influenciales:
+
+```{r}
+influencias_dffits <- which(abs(influencias_modelo1[, "dffit"])>(2*(sqrt(9/90))))
+kable(cbind(influencias_dffits,influencias_modelo1[ influencias_dffits,c("dffit")]))
+```
+
+### Puntos influencciales según el COVRATIO:
+
+Se verifica que $90>3(9)$, luego se puede concluir que una observación será cabdudata a ser influencial sí $|COVRATIO_i-1|>\frac{3(9)}{90}$, así, las siguientes observaciones son candidatas a ser influenciales:
+
+```{r}
+influenciales_covratio <- which(abs(influencias_modelo1[, "cov.r"] -1)> (3*9/90))
+kable(covratio(modelo1)[influenciales_covratio])
+```
+
+Se ajusta un modelo para los datos sin incluir las observaciones cuyo ID no es 47 ni 112:
+
+```{r}
+datos2 <- datos[-c(22,23),]
+modelo2 <- lm(rlm_formula, data = datos2)
+```
+
+Se presenta la tabla de parámetros ajustados:
+
+```{r}
+kable(summary(modelo2)$coefficients)
+```
+
+
+# Tabla de todas las regresiones posibles:
+```{r}
+#regresiones  <- ols_step_all_possible(modelo)
 ```
 
 ```{r}
-summary(modelo_estandarizado)
+#tabladeRegresiones <- as.data.frame(regresiones)
+#tabladeRegresiones %>% mutate(tabladeRegresiones, mse = regresiones$msep)
 ```
 
 
-```{r}
-anova(modelo)
-```
-## Gráfico de residuales estudentizados vs Valores ajustados
-
-```{r}
-residualPlots(modelo, type = "rstudent", tests = FALSE, quadratic = FALSE, fit = TRUE)
-```
-## QQPLOT DE LOS RESIDUALES
-```{r}
-ols_plot_resid_qq(model = modelo)
-```
-
-
-## Tabla de todas las regresiones posibles:
-```{r}
-regresiones  <- ols_step_all_possible(modelo)
-```
-
-```{r}
-tabladeRegresiones <- as.data.frame(regresiones)
-tabladeRegresiones %>% mutate(tabladeRegresiones, mse = regresiones$msep)
-```
 
