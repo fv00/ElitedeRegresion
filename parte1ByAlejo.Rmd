@@ -1,0 +1,230 @@
+---
+title: "Parte 1 según Alejo"
+author: "Alejandro Salazar Mejía"
+date: "12/5/2021"
+output: pdf_document
+---
+
+```{r}
+library(car)
+library(perturb)
+library(leaps)
+library(olsrr)
+library(knitr)
+library(rsm)
+```
+
+### Lectura de datos
+```{r}
+datos <- read.table("APC1modifm3.csv", header = T, sep = ";", dec = ",",
+                    colClasses = c(rep("numeric",7),
+                                   "factor",rep("numeric",3),"factor"))
+attach(datos)
+```
+
+# Parte I:
+Antes de comenzar considere las siguientes variables:  
+  
+$Y_i:$ i-ésima observación de la variable respuesta 'Longitud de permanencia' (DPERM).  
+$X_{i1}:$ i-ésima observación de la variable predictoria 'Edad' (EDAD).  
+$X_{i2}:$ i-ésima observación de la variable predictoria 'Riesgo de infección' (RINF).  
+$X_{i3}:$ i-ésima observación de la variable predictoria 'Razón de rutina de cultivos' (RRC).  
+$X_{i4}:$ i-ésima observación de la variable predictoria 'Razón de rutina de rayos X del pecho' (RRX).  
+$X_{i5}:$ i-ésima observación de la variable predictoria 'Número de camas' (NCAMAS).  
+$X_{i6}:$ i-ésima observación de la variable predictoria 'Censo promedio diario' (PDP).  
+$X_{i7}:$ i-ésima observación de la variable predictoria 'Número de enfermeras' (NENFERM).  
+$X_{i8}:$ i-ésima observación de la variable predictoria 'Facilidades y servicios disponibles' (FSD).  
+  
+Asumimos que el modelo de regresión lineal múltiple tiene la siguiente forma:  
+$$Y_i = \beta_0 + \beta_1 X_{i1}+ \beta_2 X_{i2}+ \beta_3 X_{i3}+ \beta_4 X_{i4}+ \beta_5 X_{i5}+ \beta_6 X_{i6}+ \beta_7 X_{i7}+ \beta_8 X_{i8} + E_i \ ,
+\ E_i\overset{iid}{\sim}\mathcal{N}(0, \sigma^2)$$
+
+```{r}
+cond <- names(datos) != c("ID", "AEM", "REGION")
+numvar <- names(datos)[cond]
+datosNumericos <- datos[numvar]
+```
+```{r}
+miscoeficientes <- function(modeloreg, datosreg){
+    coefi <- coef(modeloreg)
+    datos2 <- as.data.frame(scale(datosreg))
+    coef.std <- c(0, coef( lm( update( formula(modeloreg) ,~.+0 ),datos2 ) ) )
+    limites <- confint(modeloreg,level = 0.95)
+    vifs <- c(0,vif(modeloreg))
+    resul <- data.frame(
+        Estimación = coefi,Limites = limites,Vif = vifs,Coef.Std = coef.std)
+    resul
+}
+```
+
+\newpage
+## Punto 1:
+```{r}
+# Ajuste del modelo de regresión lineal múltiple
+modelo <- lm(DPERM ~ EDAD+RINF+RRC+RRX+NCAMAS+PDP+NENFERM+FSD)
+
+miscoefs <- miscoeficientes(modelo, datosNumericos)
+summaryModelo <- summary(modelo)
+
+kable(miscoefs["Estimación"], caption = "Tabla de parámetros ajustados")
+
+```
+  
+$$\begin{aligned} Ecuaci\acute{o}n\ ajustada: \\
+\widehat{y_i}=-0.208467 +0.104381\cdot x_{i1} \\
++ 0.335222\cdot x_{i2} \\ 
++ 0.028706\cdot x_{i3} \\
++ 0.020982\cdot x_{i4} \\
+-0.010699\cdot x_{i5} \\
++ 0.022364\cdot x_{i6} \\
+-0.006026\cdot x_{i7} \\
++ 0.004160\cdot x_{i8} \\
+\end{aligned}$$
+
+\newpage
+```{r}
+# Anova del modelo
+# Se puede obtener de summaryModelo
+summaryModelo
+```
+De los resultados arrojados por R, rescatamos la siguiente línea:  
+
+\begin{center}
+\emph{F-statistic: 14.65 on 8 and 81 DF,  p-value: 5.042e-13}
+\end{center}  
+Con un p-value casi igual a cero, concluimos que al menos una de las covariable es significativa para explicar la variabilidad de la longitud de permanencia.
+
+```{r}
+kable(data.frame("R squared" = summaryModelo$r.squared))
+```
+Aproximadamente el 60% de la variabilidad de la longitud de permanencia es explicada por el modelo. Este porcentaje no es tan alto, lo que podría indicar una carencia de ajuste, es decir, las covariables involucradas hacen que el modelo no se ajuste lo suficiente a los datos reales.
+
+\newpage
+## Punto 2:
+Se presenta la tabla de coeficientes estandarizados y además el valor absoluto de estos coeficientes ordenados de menor a mayor.
+```{r}
+kable(miscoefs["Coef.Std"], caption = "Tabla de coeficientes Estandarizados")
+```
+```{r}
+stCoefs <- miscoefs$Coef.Std
+names(stCoefs) <- row.names(miscoefs)
+sort(abs(stCoefs))
+```
+De esta última lista ordenada podemos conluir que las variables que más aportan a la longitud de permanencia son Censo promedio diario, Número de camas y tal vez Número de enfermeras. El resto de variables parece no aportar mucho
+
+\newpage
+## Punto 3:
+Cada una de las pruebas t para la significancia individual de los parámetros del modelo tienen la siguiente forma:  
+$$H_0: \beta_j = 0\ \ vs.\ \ H_1:\beta_j \neq 0\ ,$$ 
+$$ T_0= \frac{\widehat{\beta_j}}{s.e(\widehat{\beta_j})} \sim t_{81}\ , $$
+$$ p \textrm{-} value = P(|t_{81}| > \lvert T_0 \rvert)).$$
+```{r}
+pruebast <- summaryModelo$coefficients[-1,-2]
+kable(pruebast)
+```
+
+En la anterior tabla, los nombres de las filas corresponden al de la variable explicatoria asociada a cada parámetro. La columna Estimate corresponde a la estimación del parámetro, $\widehat{\beta_j}$; t value al valor del estadítico $T_0$ y Pr(>|t|) al p-value de la respectiva prueba de hipótesis.  
+  
+* **Prueba F para test lineal general de la variable PDP**  
+
+Modelo completo:  
+$Y_i = \beta_0 + \beta_1 X_{i1}+ \beta_2 X_{i2}+ \beta_3 X_{i3}+ \beta_4 X_{i4}+ \beta_5 X_{i5}+ \beta_6 X_{i6}+ \beta_7 X_{i7}+ \beta_8 X_{i8} + E_i \ ,\ E_i\overset{iid}{\sim}\mathcal{N}(0, \sigma^2)$  
+  
+Modelo reducido:  
+$Y_i = \beta_0 + \beta_1 X_{i1}+ \beta_2 X_{i2}+ \beta_3 X_{i3}+ \beta_4 X_{i4}+ \beta_5 X_{i5}+ \beta_7 X_{i7}+ \beta_8 X_{i8} + E_i \ ,\ E_i\overset{iid}{\sim}\mathcal{N}(0, \sigma^2)$  
+  
+Estadístico de prueba y distribución: 
+\begin{gather} 
+F_{06} = \frac{SSR(X_6|X_1,X_2,X_3,X_4,X_5,X_7,X_8)}
+{MSE(X_1,X_2,X_3,X_4,X_5,X_6,X_7,X_8)}\ , \\
+F_{06} = \frac{SSE(X_1,X_2,X_3,X_4,X_5,X_7,X_8) - SSE(X_1,X_2,X_3,X_4,X_5,X_6,X_7,X_8)}
+{MSE(X_1,X_2,X_3,X_4,X_5,X_6,X_7,X_8)}\ , \\
+F_{06} \sim f_{1, 81}
+\end{gather}  
+  
+Cálculo de valor p:
+$$p\text{-}value = P(f_{1, 81} > F_{06})$$
+\newpage
+```{r}
+lh1 <- linearHypothesis(modelo, "PDP = 0")
+lh1[1, 3:6] <- c(" ", " ", " ", " ")
+kable(lh1)
+```
+
+La tabla anterior nos brinda todo lo necesario para construir nuestro estadítico de prueba $F_{06}$.  
+$$g.l.(SSE(X_1,X_2,X_3,X_4,X_5,X_7,X_8)) = 82$$
+$$g.l.(SSE(X_1,X_2,X_3,X_4,X_5,X_6,X_7,X_8)) = 81$$
+$$SSE(X_1,X_2,X_3,X_4,X_5,X_7,X_8) = 189.30$$
+$$SSE(X_1,X_2,X_3,X_4,X_5,X_6,X_7,X_8) = 150.33$$
+$$g.l(SSR(X_6|X_1,X_2,X_3,X_4,X_5,X_7,X_8)) = 82-81=1$$
+$$SSR(X_6|X_1,X_2,X_3,X_4,X_5,X_7,X_8) = 189.30-150.33 = 38.969$$
+
+La columna 'F' presenta el valor de $F_{06}$ y la columna Pr(>F) su respectivo p-value.  
+  
+  
+  
+* **Prueba F para test lineal general de la variable EDAD **
+
+Modelo completo:  
+$Y_i = \beta_0 + \beta_1 X_{i1}+ \beta_2 X_{i2}+ \beta_3 X_{i3}+ \beta_4 X_{i4}+ \beta_5 X_{i5}+ \beta_6 X_{i6}+ \beta_7 X_{i7}+ \beta_8 X_{i8} + E_i \ ,\ E_i\overset{iid}{\sim}\mathcal{N}(0, \sigma^2)$  
+  
+Modelo reducido:  
+$Y_i = \beta_0 + \beta_2 X_{i2}+ \beta_3 X_{i3}+ \beta_4 X_{i4}+ \beta_5 X_{i5}+ \beta_6 X_{i6}+ \beta_7 X_{i7}+ \beta_8 X_{i8} + E_i \ ,\ E_i\overset{iid}{\sim}\mathcal{N}(0, \sigma^2)$  
+  
+Estadístico de prueba y distribución: 
+\begin{gather} 
+F_{01} = \frac{SSR(X_1|X_2,X_3,X_4,X_5,X_6,X_7,X_8)}
+{MSE(X_1,X_2,X_3,X_4,X_5,X_6,X_7,X_8)}\ , \\
+F_{01} = \frac{SSE(X_2,X_3,X_4,X_5,X_6,X_7,X_8) - SSE(X_1,X_2,X_3,X_4,X_5,X_6,X_7,X_8)}
+{MSE(X_1,X_2,X_3,X_4,X_5,X_6,X_7,X_8)}\ , \\
+F_{01} \sim f_{1, 81}
+\end{gather}  
+  
+Cálculo de valor p:
+$$p\text{-}value = P(f_{1, 81} > F_{01})$$
+
+```{r}
+lh2 <- linearHypothesis(modelo, "EDAD = 0")
+lh2[1, 3:6] <- c(" ", " ", " ", " ")
+kable(lh2)
+```
+
+La tabla anterior nos brinda todo lo necesario para construir nuestro estadítico de prueba $F_{01}$.  
+$$g.l.(SSE(X_2,X_3,X_4,X_5,X_6,X_7,X_8)) = 82$$
+$$g.l.(SSE(X_1,X_2,X_3,X_4,X_5,X_6,X_7,X_8)) = 81$$
+$$SSE(X_2,X_3,X_4,X_5,X_6,X_7,X_8) = 167.81$$
+$$SSE(X_1,X_2,X_3,X_4,X_5,X_6,X_7,X_8) = 150.33$$
+$$g.l(SSR(X_1|X_2,X_3,X_4,X_5,X_6,X_7,X_8)) = 82-81=1$$
+$$SSR(X_1|X_2,X_3,X_4,X_5,X_6,X_7,X_8) = 167.81-150.33 = 17.478$$
+
+La columna 'F' presenta el valor de $F_{01}$ y la columna Pr(>F) su respectivo p-value. 
+
+\newpage
+## Punto 4:
+En la siguiente tabla se muestra la suma de cuadrados secuencial, y en la última fila la suma de cuadrados del error.
+```{r}
+SS1 <- anova(modelo)["Sum Sq"]
+kable(SS1, caption = "Sumas de cuadrados tipo I y SSE")
+```
+
+Análogamente, en la siguiente tabla se muestra la suma de cuadrados parciales, y en la última fila la suma de cuadrados del error.
+```{r}
+SS2 <- Anova(modelo)["Sum Sq"]
+kable(SS2, caption = "Sumas de cuadrados tipo II y SSE")
+```
+
+\newpage
+## Punto 5:
+```{r}
+win.graph()
+residualPlots(modelo, tests = FALSE ,type="rstudent")
+```
+
+## Punto 6:
+```{r}
+test <- shapiro.test(rstudent(modelo))
+qqnorm(rstudent(modelo),cex=1)
+qqline(rstudent(modelo),col=2)
+legend("topleft",legend=rbind(c("Statistic W","p.value"),round(c(test$statistic,test$p.value),digits=5)),cex=1.2)
+```
+
