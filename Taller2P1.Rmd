@@ -1,8 +1,8 @@
 ---
 title: "Taller 2 Regresión"
 output:
-  html_document: default
   pdf_document: default
+  html_document: default
 ---
 
 ```{r setup, include=FALSE}
@@ -29,125 +29,260 @@ result <-data.frame(Sum_of_Squares = format(c(SSR , SSE ), digits = 6) ,
                     P_value = c(format(PV , digits = 6) , ''), row.names = c(" Model ", " Error "))
 return <- result
 }
+miscoeficientes <- function(modeloreg, datosreg){
+    coefi <- coef(modeloreg)
+    datos2 <- as.data.frame(scale(datosreg))
+    coef.std <- c(0, coef( lm( update( formula(modeloreg) ,~.+0 ),datos2 ) ) )
+    limites <- confint(modeloreg,level = 0.95)
+    vifs <- c(0,vif(modeloreg))
+    resul <- data.frame(
+        Estimación = coefi,Limites = limites,Vif = vifs,Coef.Std = coef.std)
+    resul
+}
 ```
 
-```{r}
+
+```{r, include=FALSE}
 library(car)
 library(dplyr)
 library(rsm)
 library(leaps)
 library(olsrr)
 library(knitr)
+library(corrplot)
+library(perturb)
 ```
 
 
-```{r}
+```{r, include=FALSE}
 #LEER DATOS EN archivo asignado a su grupo, así:
 datos=read.table("APC1modifm3.csv",header=T,sep=";",dec=",",
 colClasses=c(rep("numeric",7),"factor",rep("numeric",3),"factor"))
 #CONSULTA DE NOMBRE DE VARIABLES EN OBJETO datos
  
-regresoras <- names(datos)[names(datos) != c("ID", "AEM", "REGION")] 
-numericas <- c(regresoras)
-regresoras <- paste(regresoras[2:length(regresoras)], collapse =" +")
+numericas <- names(datos)[names(datos) != c("ID", "AEM", "REGION")]
 
+datosNumericos <- datos[numericas]
 
+regresoras_formula<- paste(numericas[2:length(numericas)], collapse =" +")
+rlm_formula = formula(paste(c("DPERM", regresoras_formula), collapse = " ~ ") )
 ```
 
 
-## Ajuste de modelo de regresión lineal múltiple
+## 1. Ajuste de modelo de regresión lineal múltiple
+
+Considere las siguientes variables:  
+
+$Y_i:$ i-ésima observación de la variable respuesta 'Longitud de permanencia' (DPERM).  
+$X_{i1}:$ i-ésima observación de la variable predictoria 'Edad' (EDAD).  
+$X_{i2}:$ i-ésima observación de la variable predictoria 'Riesgo de infección' (RINF).  
+$X_{i3}:$ i-ésima observación de la variable predictoria 'Razón de rutina de cultivos' (RRC).  
+$X_{i4}:$ i-ésima observación de la variable predictoria 'Razón de rutina de rayos X del pecho' (RRX).  
+$X_{i5}:$ i-ésima observación de la variable predictoria 'Número de camas' (NCAMAS).  
+$X_{i6}:$ i-ésima observación de la variable predictoria 'Censo promedio diario' (PDP).  
+$X_{i7}:$ i-ésima observación de la variable predictoria 'Número de enfermeras' (NENFERM).  
+$X_{i8}:$ i-ésima observación de la variable predictoria 'Facilidades y servicios disponibles' (FSD).  
+  
+Se observa que se tienen 90 observaciones y k= 8 variables regresoras.
+
+Se asume que el modelo de regresión lineal múltiple tiene la siguiente forma:  
+$$Y_i = \beta_0 + \beta_1 X_{i1}+ \beta_2 X_{i2}+ \beta_3 X_{i3}+ \beta_4 X_{i4}+ \beta_5 X_{i5}+ \beta_6 X_{i6}+ \beta_7 X_{i7}+ \beta_8 X_{i8} + E_i \ ,
+\ E_i\overset{iid}{\sim}\mathcal{N}(0, \sigma^2), i=1,...,90$$
 
 Se ajusta un modelo de regresión lineal multiple:
 
-```{r}
-rlm_formula = formula(paste(c("DPERM", regresoras), collapse = " ~ ") )
+```{r, include=FALSE}
 modelo1 <- lm(rlm_formula, data= datos)
 coeficientes_modelo1 <- modelo1$coefficients
+miscoefs <- miscoeficientes(modelo1, datosNumericos)
 ```
+
+Se escribe la ecuación ajustada:
+
+$\hat{Y_i}=-0.2084+0.1043X1+0.3352X2+0.0287X3+0.0209X4-0.0106X5+0.0223X6-0.006X7+0.0041X8, i=1,...,90.$
 
 Se muestra la tabla de parámetros ajustados:
 ```{r}
 kable(summary(modelo1)$coefficients)
 ```
 
-Se observa que se tienen 90 observaciones y k= 8 variables regresoras. Escribimos la ecuación ajustada:
-
-$\hat{Y_i}=-0.2084+0.1043X1+0.3352X2+0.0287X3+0.0209X4-0.0106X5+0.0223X6-0.006X7+0.0041X8$
-
-Calculamos la tabla ANOVA del modelo:
+Se calcula la tabla ANOVA del modelo:
 
 ```{r}
 kable(myAnova(modelo1))
 ```
 
-De la tabla anova del modelo se concluye que el modelo es significativo ya que el valor p de la prueba de significancia de la regresión es menor a 0.05.
+Con un p-value casi igual a cero, se concluye que al menos una de las covariable es significativa para explicar la variabilidad de la longitud de permanencia.
 
 
-```{r}
+```{r, include=FALSE}
 kable(t(summary(modelo1)[c("r.squared", "adj.r.squared")]))
 ```
-Del resumen del modelo se obtiene que el valor de $R^2$ es 0.5914, es decir que un 59.14\% de la variabilidad total de la variable respuesta es explicada por el modelo. Se opina que este porcentaje de la variabilidad tan "bajo" puede deberse a que alguna de las covariables no sea significativa o porque directamente no es adecuado suponer que existe una relación lineal entre la variable respuesta y las covariables númericas.
+Del resumen del modelo se obtiene que el valor de $R^2$ es 0.5914, es decir que un 59.14\% de la variabilidad total de la longitud de permanencia es explicada por el modelo. Se opina que este porcentaje de la variabilidad tan "bajo" puede deberse a que alguna de las covariables no sea significativa, o no es adecuado suponer que existe una relación lineal entre la longitud de permanencia y las covariables númericas presentándose carencia de ajuste.
 
-## Coeficientes estandarizados:
+## 2. Coeficientes estandarizados:
 
-Se calcula un modelo de regresión lineal multiple con las variables estándarizadas:
+Se calculan los coeficientes de un modelo de regresión lineal multiple con las variables estándarizadas, ordenados de menor a mayor:
 
-```{r}
-datos_estandarizados <- datos[, c(numericas)] %>% scale(center = TRUE, scale = TRUE) %>% data.frame()
-modelo_estandarizado <- lm(rlm_formula, data = datos_estandarizados)
+
+```{r, echo=FALSE}
+stCoefs <- miscoefs$Coef.Std
+names(stCoefs) <- row.names(miscoefs)
+stCoefs <- sort(abs(stCoefs)) 
+stCoefs <- stCoefs[-1]
+kable(sort(abs(stCoefs)),  
+      caption = "Tabla de coeficientes Estandarizados",
+      col.names = c("Coef.Std"))
 ```
 
-Se imprimen los coeficientes del modelo que incluye las variables estándarizadas:
+De la tabla se concluye que la covariable que "más" aporta al modelo cuando los datos se encuentran estándarizados es el "Censo promedio diario", indicando que un aumento unitario en el "Censo promedio diario" estándarizado aumentaría en $1.68$ unidades en promedio la longitud de permanencia estándarizada, dado que el resto de covariables están en el modelo. 
+
+Además del "Censo promedio diario", se encontró que dos de las covariables que estándarizadas más aportan al modelo son el número de camas y el número de enfermeras, sugiriendo que las primeras tres covariables que estandarizadas más aportan al modelo se relacionan con el tamaño de los hospitales.
+
+## 3. Significancia individual de los parámetros del modelo:
+
+Cada una de las pruebas t para la significancia individual de los parámetros del modelo tienen la siguiente forma:  
+
+$$H_0: \beta_j = 0\ \ vs.\ \ H_1:\beta_j \neq 0\ , j = 1,...,8.$$ 
+$$ T_{0j}= \frac{\widehat{\beta_j}}{s.e(\widehat{\beta_j})} \sim t_{81}\ , j = 1,...,8. $$
+$$ p \textrm{-} value_j = P(|t_{81}| > \lvert T_{0j} \rvert).$$
+Se crea una tabla de coeficientes asociados a cada covariable, que incluye el valor de su estadístico t y el valor p de su prueba de hipótesis.
+
+```{r, echo=FALSE}
+kable(summary(modelo1)$coefficients[-1,-2],
+      col.names = c("Estimación", 'Estadístico t', 'Valor p'))
+```
+De la tabla anterior se concluye que utilizando la prueba t los parámetros $\beta_3$ y $\beta_8$ no son significativos, es decir que la "Razón de rutina de cultivos" y "Facilidades y servicios disponibles" no ayudan a explicar la variabilidad de la "Longitud de permanencia" dado que las demás covariables no se encuentran en el modelo.
+
+### Prueba F para dos predictoras:
+
+A partir de la tabla anterior se realiza una prueba F para las covariables "Censo promedio diario", 
+#### Prueba F para test lineal general para el Censo promedio diario
+Se define el modelo completo:  
+$$Y_i = \beta_0 + \beta_1 X_{i1}+ \beta_2 X_{i2}+ \beta_3 X_{i3}+ \beta_4 X_{i4}+ \beta_5 X_{i5}+ \beta_6 X_{i6}+ \beta_7 X_{i7}+ \beta_8 X_{i8} + E_i \ ,\ E_i\overset{iid}{\sim}\mathcal{N}(0, \sigma^2), i =1,...,90.$$  
+Se define el modelo reducido:  
+$$Y_i = \beta_0 + \beta_1 X_{i1}+ \beta_2 X_{i2}+ \beta_3 X_{i3}+ \beta_4 X_{i4}+ \beta_5 X_{i5}+ \beta_7 X_{i7}+ \beta_8 X_{i8} + E_i \ ,\ E_i\overset{iid}{\sim}\mathcal{N}(0, \sigma^2)$$
+A partir de los datos, se define: 
+\begin{gather} 
+F_{06} = \frac{SSR(X_6|X_1,X_2,X_3,X_4,X_5,X_7,X_8)}
+{MSE(X_1,X_2,X_3,X_4,X_5,X_6,X_7,X_8)}\ , \\
+F_{06} = \frac{SSE(X_1,X_2,X_3,X_4,X_5,X_7,X_8) - SSE(X_1,X_2,X_3,X_4,X_5,X_6,X_7,X_8)}
+{MSE(X_1,X_2,X_3,X_4,X_5,X_6,X_7,X_8)}\ , \\
+F_{06} \sim f_{1, 81}
+\end{gather}  
+Cálculo de valor p:
+$$p\text{-}value = P(f_{1, 81} > F_{06})$$
+$$g.l.(SSE(X_1,X_2,X_3,X_4,X_5,X_7,X_8)) = 82$$
+$$g.l.(SSE(X_1,X_2,X_3,X_4,X_5,X_6,X_7,X_8)) = 81$$
+$$SSE(X_1,X_2,X_3,X_4,X_5,X_7,X_8) = 189.30$$
+$$SSE(X_1,X_2,X_3,X_4,X_5,X_6,X_7,X_8) = 150.33$$
+$$g.l(SSR(X_6|X_1,X_2,X_3,X_4,X_5,X_7,X_8)) = 82-81=1$$
+$$SSR(X_6|X_1,X_2,X_3,X_4,X_5,X_7,X_8) = 189.30-150.33 = 38.969$$
+
+A partir de los valores previos se obtiene la siguiente tabla:
+
+
+```{r, echo=FALSE}
+lh1 <- linearHypothesis(modelo1, "PDP = 0")
+lh1[1, 3:6] <- c(" ", " ", " ", " ")
+kable(lh1)
+```
+
+La columna 'F' presenta el valor de $F_{06}$ y la columna Pr(>F) su respectivo p-value.  
+  
+Del resultado de la prueba anterior se concluye que el "Censo promedio diario" ayuda a explicar la "Longitud de permenancia" dado que el resto de las covariables se encuentran en el modelo.
+  
+#### Prueba F para test lineal general para la Edad
+
+Modelo completo:  
+$Y_i = \beta_0 + \beta_1 X_{i1}+ \beta_2 X_{i2}+ \beta_3 X_{i3}+ \beta_4 X_{i4}+ \beta_5 X_{i5}+ \beta_6 X_{i6}+ \beta_7 X_{i7}+ \beta_8 X_{i8} + E_i \ ,\ E_i\overset{iid}{\sim}\mathcal{N}(0, \sigma^2)$  
+  
+Modelo reducido:  
+$Y_i = \beta_0 + \beta_2 X_{i2}+ \beta_3 X_{i3}+ \beta_4 X_{i4}+ \beta_5 X_{i5}+ \beta_6 X_{i6}+ \beta_7 X_{i7}+ \beta_8 X_{i8} + E_i \ ,\ E_i\overset{iid}{\sim}\mathcal{N}(0, \sigma^2)$  
+
+A partir de los datos, se define: 
+\begin{gather} 
+F_{01} = \frac{SSR(X_1|X_2,X_3,X_4,X_5,X_6,X_7,X_8)}
+{MSE(X_1,X_2,X_3,X_4,X_5,X_6,X_7,X_8)}\ , \\
+F_{01} = \frac{SSE(X_2,X_3,X_4,X_5,X_6,X_7,X_8) - SSE(X_1,X_2,X_3,X_4,X_5,X_6,X_7,X_8)}
+{MSE(X_1,X_2,X_3,X_4,X_5,X_6,X_7,X_8)}\ , \\
+F_{01} \sim f_{1, 81}
+\end{gather}  
+  
+Se calcula el valor p:
+$$p\text{-}value = P(f_{1, 81} > F_{01})$$
 
 ```{r}
-kable(t(modelo_estandarizado$coefficients))
+lh2 <- linearHypothesis(modelo1, "EDAD = 0")
+lh2[1, 3:6] <- c(" ", " ", " ", " ")
+kable(lh2)
 ```
-De la tabla se concluye que la covariable que "más" aporta al modelo cuando los datos se encuentran estándarizados es la covariable "PDP".
+La columna 'F' presenta el valor de $F_{06}$ y la columna Pr(>F) su respectivo p-value.  
+  
+Del resultado de la prueba anterior se concluye que la Edad ayuda a explicar la "Longitud de permenancia" dado que el resto de las covariables se encuentran en el modelo.
 
-## Significancia individual de los parámetros del modelo:
-
-```{r}
-kable(summary(modelo1)$coefficients)
-```
-De la tabla anterior se concluye que los parámetros $\beta_1$ y $\beta_8$ no son significativos.
-
-
-## Sumas de cuadrados de tipo 1 y de tipo 2:
+## 4. Sumas de cuadrados de tipo 1 y de tipo 2:
 
 ### Sumas de cuadrados de tipo 1:
 
-```{r}
-kable(anova(modelo1)[1:2])
+```{r, echo=FALSE}
+kable(anova(modelo1)[2:1],
+      caption = "Sumas de cuadrados tipo I y SSE",
+      col.names = c("Suma de cuadrados", "g.l"))
 ```
 
 ### Sumas de cuadrados de tipo II:
 
+```{r, echo=FALSE}
+kable(Anova(modelo1)[1:2][order(Anova(modelo1)[1]),],
+      caption = "Sumas de cuadrados tipo II y SSE",
+      col.names = c("Suma de cuadrados", "g.l"))
+```
+Se encuentra que en ambas tablas, la regresora que tiene menor valor en las sumas de cuadrados de tipo I y II es Facilidades y Servicios disponibles". 
+
+Para la suma de cuadrados parciales este bajo valor conlleva a un estadístico F también de bajo valor, implicando un valor p alto, dando indicios de que las Facilidades y Servicios disponibles no ayudan a explicar la Longitud de permanencia, dado que todas las demás covariables están en el modelo, lo cuál se comprobó en el numeral anterior.
+
+Para la suma de cuadrados secuenciales se obtuvo el mismo valor que en la suma de cuadrados parciales ya que fue la última variable que se ingresó en la secuencia. Este valor significa el aumento marginal en la suma de cuadrados de la regresión que se obtiene al agregar Facilidades y Servicios disponibles dado que las demás variables se encuentran en el modelo.
+
+En ambos casos su interpretación es la misma.
+
+## 5. Gráfico de residuales estudentizados vs Valores ajustados
+De los gráficos studentizados buscamos evaluar el supuesto de varianza constante y carencia de ajuste 
+en el modelo.
+
 ```{r}
-kable(Anova(modelo1)[1:2])
+residualPlots(modelo1, type = "rstudent", tests = FALSE, fit = TRUE)
+
 ```
 
-## 5.Gráfico de residuales estudentizados vs Valores ajustados
+En las gráficas de los residuos vs. covariables no se nota algún patrón en contra del supuesto de varianza constante. Por el otro lado, del gráfico de Residuales vs. variable respuesta (Longitud de permanecia), aunque se cumple el supuesto de varianza constante, hay motivos para creer que se presencia una carencia de ajuste debido al patrón cuadrático.
+
+## 6. Gráfica de probabilidad normal para los residuales estudentizados.
 
 ```{r}
-residualPlots(modelo1, type = "rstudent", tests = FALSE, quadratic = FALSE, fit = TRUE)
+test <- shapiro.test(rstudent(modelo1))
+qqnorm(rstudent(modelo1),cex=1)
+qqline(rstudent(modelo1),col=2)
+legend("topleft",legend=rbind(c("Statistic W","p.value"),round(c(test$statistic,test$p.value),digits=5)),cex=1.2)
 ```
 
-## Gráfica de probabilidad normal para los residuales estudentizados.
+Se observa un desajuste al inicio y al final de la gráfica que permite dudar sobre la hipótesis de normalidad sobre los errores del modelo.
+De acuerdo a la prueba de bondad de ajuste Shapito-Wilks, los errores studentizados no se distribuyen normalmente. Sin embargo, esta prueba es muy sensible a datos atípicos los cuales son observados en la gráfica. 
 
-```{r}
-ols_plot_resid_qq(model = modelo1)
-```
-
-```{r}
-normalidad <- shapiro.test(modelo1$residuals)
-kable(t(normalidad[c("p.value" ,"statistic" )]))
-```
-Según la gráfica anterior se observa un desajuste al inicio y al final de la gráfica que permite dudar sobre la hipótesis de normalidad sobre los errores del modelo.
-
-## Diagnóstico de la presencia de observaciones atípicas, de balanceo y/o influenciales.
+## 7. Diagnóstico de la presencia de observaciones atípicas, de balanceo y/o influenciales.
 
 Se crea una tabla con las medidas de influencia:
+```{r}
+infIndexPlot(modelo1)
+influencePlot(modelo1)
 
+```
+```{r}
+IDs <- datos$ID
+IDs[22]
+```
+
+Como lo ilustran las gráficas y la tabla correspondiente, la observación con índice 22, i.e. el hospital con ID 47, es una observación atípica.
 
 ```{r}
 influencias_modelo1 <- influence.measures(modelo1)
@@ -155,21 +290,13 @@ influencias_modelo1 <- (influencias_modelo1$infmat)
 influencias_modelo1 <- cbind(influencias_modelo1, std.res = rstandard(modelo1), stud.res = rstudent(modelo1))
 ```
 
-### Observaciones atípicas mediante residuales estándarizados:
-
 ```{r}
-which(abs(influencias_modelo1[,"std.res"])>3 )
+criterioHat <- 2*(8+1)/90
+balanceo <- hatvalues(modelo1) > criterioHat
+IDs[balanceo]
+
 ```
-
-Según los residuales estándarizados la observación 22 es una observación atípica potencial.
-
-### Observaciones atípicas mediante residuales estudentizados:
-
-```{r}
-which(abs(influencias_modelo1[,"stud.res"])>3 )
-```
-
-De nuevo se observa que según los residuales estudentizados la observación 22 es una observación potencialmente atípica.
+Según el criterio de los hat-values: $h_{ii} > 0.2$, las observaciones de balanceo son aquellos hospitales con ID 13, 66, 104, 112, 8, 48, 54, 53 y 46.
 
 ### Observaciones influyentes según las distancias de cook:
 
@@ -180,59 +307,107 @@ Según el criterio de las distancias de cook no se tienen observaciones influyen
 
 ### Observaciones influyentes según los DFBetas:
 
-Según el criterio de los DFBetas las siguientes observaciones son influyentes:
+Según el criterio de los DFBetas las siguientes observaciones son cándidatos a influyentes:
 
 ```{r}
 influencias_modelo1 <- as.data.frame(influencias_modelo1)
 influenciales_dfbetas <- which(abs(influencias_modelo1[,1:9])> (2/sqrt(90)),arr.ind = TRUE)
 kable(influencias_modelo1[unique(influenciales_dfbetas[, "row"]), 1:9])
 ```
+```{r}
+IDs[unique(influenciales_dfbetas[, "row"])]
+```
+Estas corresponden a los hospitales con los IDs 47, 75, 43, 65, 106, 63, 33, 8, 26 ,112, 62, 1, 48, 46 y 69.
+
 ### Observaciones influenciales según los DFFITS:
 
-Según los dffits se tiene que las siguientes observaciones son influenciales:
+Según los dffits se tiene que las siguientes observaciones son candidatas a influenciales:
 
 ```{r}
 influencias_dffits <- which(abs(influencias_modelo1[, "dffit"])>(2*(sqrt(9/90))))
 kable(cbind(influencias_dffits,influencias_modelo1[ influencias_dffits,c("dffit")]))
 ```
+```{r}
+toString(IDs[influencias_dffits])
+```
+Estas corresponden a los hospitales con los IDs 47, 112, 8, 43, 106, 46, 63.
 
-### Puntos influencciales según el COVRATIO:
+### Puntos influenciales según el COVRATIO:
 
-Se verifica que $90>3(9)$, luego se puede concluir que una observación será cabdudata a ser influencial sí $|COVRATIO_i-1|>\frac{3(9)}{90}$, así, las siguientes observaciones son candidatas a ser influenciales:
+Se verifica que $90>3(9)$, luego se puede concluir que una observación será cándidata a ser influencial sí $|COVRATIO_i-1|>\frac{3(9)}{90}$, así, las siguientes observaciones son candidatas a ser influenciales:
 
 ```{r}
 influenciales_covratio <- which(abs(influencias_modelo1[, "cov.r"] -1)> (3*9/90))
 kable(covratio(modelo1)[influenciales_covratio])
 ```
+```{r}
+toString(IDs[influenciales_covratio])
+```
+Estas corresponden a los hospitales con los IDs 13, 66, 104, 47, 112, 8, 54, 109, 40, 43, 53, 110, 46.
+
+Como se mencionó al inicio, el hospital con $ID = 47$ es una observación atípica. Además es considerada como candidata a influenciable por los críterios de DFBeta, para al menos un $\beta_i$, DFFITS Y CovRatio.
+Por otro lado, el hospital con $ID = 112$ es considerado un punto de balanceo. Además, es cándidato a ser influenciable según los criterios de DFBeta, para al menos un $\beta_i$, DFFITS Y CovRatio.
+
 
 Se ajusta un modelo para los datos sin incluir las observaciones cuyo ID no es 47 ni 112:
 
 ```{r}
-datos2 <- datos[-c(22,23),]
-modelo2 <- lm(rlm_formula, data = datos2)
+datos2 <- scale(datosNumericos[-c(22,23),])
+modelo2 <- lm(update( rlm_formula ,~.+0 ), data = as.data.frame(datos2))
+
 ```
 
 Se presenta la tabla de parámetros ajustados:
 
 ```{r}
-kable(summary(modelo2)$coefficients)
+tablaParas2 <- summary(modelo2)$coefficients
+kable(tablaParas2, caption = "Tabla de Parámetros estandarizados sin obs. con ID 47 y 112")
 ```
-
-### Gráfico de normalidad para los residuales estudentiszados:
-
 ```{r}
-ols_plot_resid_qq(model = modelo2)
+datos1 <- scale(datosNumericos)
+modelo11 <- lm(update(rlm_formula ,~.+0 ), data = as.data.frame(datos1))
+tablaParas1 <- summary(modelo11)$coefficients
+kable(tablaParas1, caption = "Tabla de parámetros con todas las observaciones estandarizadas")
 ```
 
-Se observa una notoria mejoría en la gráfica de normalidad de los residuales estudentizados respecto a la gráfica anterior.
+En las siguiente tabla se muestra el error relativo del modelo sin las observciones con ID = 47 y 112 con respecto al modelo con todos las observaciones.
+```{r}
+(tablaErrorRelativo <- abs(tablaParas1-tablaParas2)/tablaParas1)
+```
+Se observa que la estimación de $\beta_3, \beta_5, \beta_6, \beta_7$ cambia en más del 20% con respecto a la estimación original con todas las observaciones en unidades estándar.
+Solo el error estándar de la estimación de $\beta_6$ aumenta en más de un 20% con respecto a la estimación original con todas las observaciones en unidades estándar.
+Con un nivel de significancia del 5%, el modelo sin las observaciones $ID = 47 y ID = 112$ muestra que las co-variables "Número de camas" y "Número de enfermeras" ya no son significativa, dado que el resto de variables explicatorias están en el modelo. Es decir, en el modelo sin las dichas observaciones, el número de camas y enfermeras no ayuda a explicar la longitud de permanencia.
 
-## Diagnósticos de multicolinealidad:
+
+### Gráfico de normalidad para los residuales estudentizados:
+```{r}
+test2 <- shapiro.test(rstudent(modelo2))
+qqnorm(rstudent(modelo2),cex=1)
+qqline(rstudent(modelo2),col=2)
+legend("topleft",legend=rbind(c("Statistic W","p.value"),round(c(test2$statistic,test2$p.value),digits=5)),cex=1.2)
+```
+Sin las observaciones mencionadas, la prueba de bondad de ajuste para normalidad de shapiro-wilks indica que los errores estudentizados se distribuyen normalmente. Esto se puede rectificar con el gráfico.
+
+
+## 8. Diagnósticos de multicolinealidad:
 
 ### Diagnósticos de multicolinealidad mediante la Matriz de correlación de las variables predictoras:
 
-```{r}
-kable(cor(datos2[ , numericas]))
+```{r, include=FALSE}
+correlaciones <- cor(datos2[ , numericas])
 ```
+
+```{r, echo=FALSE}
+kable(correlaciones)
+```
+
+Buscamos los pares de variables cuya correlación sea superior 0.9, para facilitar esto se crea un mapa de calor de correlaciones:
+
+```{r}
+corrplot(correlaciones, method = c('number'))
+```
+
+Según la matriz de correlaciones, se observan problemas de multicolinealidad al asociar el Número de camas, el Censo promedio diario, el número de enfermas y las Facilidades y servicios disponibles entre sí.
 
 ### Diagnósticos de multicolinealidad mediante los VIF's:
 
@@ -240,27 +415,53 @@ kable(cor(datos2[ , numericas]))
 kable(t(vif(modelo2)))
 ```
 
-### Diagnósticos de multicolinealidad mediante las proporciones de varianza:
+Se observan factores de inflación de varianza $VIF_j$ superiores a 10 asociados al número de camas y al censo promedio , diágnosticando problemas serios de multicolinealidad en al menos dos variables.
+
+### Diagnósticos de multicolinealidad mediante las proporciones de varianza con los datos estandarizados:
+
+Se muestran las proporcioens de varianza para los datos estandarizados:
 
 ```{r}
-ols_coll_diag(modelo2)
+coldiag <- colldiag(modelo2)
+coldiag <- coldiag$pi[, -1]
+kable(coldiag)
 ```
 
 
-## Selección de modelo:
+```{r}
+corrplot(coldiag, method = c('number'))
+
+```
+Según las proporciones de descomposición de varianza, existen problemas de multicolinealidad entre el riesgo de infección y la Razón de rutina de cultivos, además de el Número de camas y el Censo promedio diario.
+
+## 9. Selección de modelo:
 
 ### Tabla de todas las regresiones posibles:
-```{r}
-regresiones  <- ols_step_all_possible(modelo2)
+```{r, include=FALSE}
+#regresiones  <- ols_step_all_possible(modelo2)
+regresiones <- readRDS('regresiones.RDS')
+
 ```
 
 ```{r}
-head(regresiones)
+kable(head(regresiones, 10))
+```
+
+```{r}
+plot(regresiones)
 ```
 
 
 ### Selección de modelo según el $R^2_{adj}$:
 
+Según el criterio del $R^2_{adj}$ y el principio de parcimonia, se elige el modelo con indice 163 en la tabla de todos los modelos de regresión, ya que el crecimiento en el $R^2_{adj}$ no es tan grande al añadir más de 5 variables. 
+
+El modelo con 5 covariables que tiene el $R^2_{adj}$ más alto, es el modelo que está compuesto de las covariables "EDAD RINF RRX NCAMAS PDP"
+```{r}
+r2_formula <- regresiones[163, ]$predictors
+r2_formula <- str_split(r2_formula, " ")[[1]]
+(formula_r2 <- paste("DPERM ~ ",paste(r2_formula, collapse= " + ")))
+```
 
 
 ### Selección de modelo según el estadístico $C_p$
@@ -272,10 +473,10 @@ head(regresiones)
  
 ### Selección mediante el metodo forward:
 
-### Selección mediante el método backward:
+###  Selección mediante el método backward:
 
 
-## ¿Cuál modelo sugiere para la variable respuesta?
+## 10. ¿Cuál modelo sugiere para la variable respuesta?
 
 
 
