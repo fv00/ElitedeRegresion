@@ -1,15 +1,17 @@
 ---
-title: "Taller 2 Regresión"
+title: "Solución:"
 output:
   pdf_document: default
   html_document: default
 ---
+\pagestyle{empty}
+\maketitle
+\thispagestyle{empty}
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
-opts <- options(knitr.kable.NA = "")
+knitr::opts_chunk$set(echo = FALSE, comment = "")
+opts <- options(knitr.kable.NA = "", digits = 3)
 ```
-
 
 ```{r include= FALSE}
 myAnova <- function (lm.model){
@@ -39,6 +41,14 @@ miscoeficientes <- function(modeloreg, datosreg){
         Estimación = coefi,Limites = limites,Vif = vifs,Coef.Std = coef.std)
     resul
 }
+regresion <- function(fila, user_data){
+  result = list()
+  r2_formula <- fila$predictors
+  r2_formula <- str_split(r2_formula, " ")[[1]]
+  r2_formula <- paste("DPERM ~ ",paste(r2_formula, collapse= " + "))
+  modelo <- lm(formula = r2_formula, data = user_data)
+  return(modelo)
+}
 ```
 
 
@@ -51,6 +61,7 @@ library(olsrr)
 library(knitr)
 library(corrplot)
 library(perturb)
+library(stringr)
 ```
 
 
@@ -102,13 +113,13 @@ Se escribe la ecuación ajustada:
 $\hat{Y_i}=-0.2084+0.1043X1+0.3352X2+0.0287X3+0.0209X4-0.0106X5+0.0223X6-0.006X7+0.0041X8, i=1,...,90.$
 
 Se muestra la tabla de parámetros ajustados:
-```{r}
+```{r, echo =FALSE}
 kable(summary(modelo1)$coefficients)
 ```
 
 Se calcula la tabla ANOVA del modelo:
 
-```{r}
+```{r, echo = FALSE}
 kable(myAnova(modelo1))
 ```
 
@@ -194,10 +205,10 @@ Del resultado de la prueba anterior se concluye que el "Censo promedio diario" a
   
 #### Prueba F para test lineal general para la Edad
 
-Modelo completo:  
+##### Modelo completo:  
 $Y_i = \beta_0 + \beta_1 X_{i1}+ \beta_2 X_{i2}+ \beta_3 X_{i3}+ \beta_4 X_{i4}+ \beta_5 X_{i5}+ \beta_6 X_{i6}+ \beta_7 X_{i7}+ \beta_8 X_{i8} + E_i \ ,\ E_i\overset{iid}{\sim}\mathcal{N}(0, \sigma^2)$  
   
-Modelo reducido:  
+##### Modelo reducido:  
 $Y_i = \beta_0 + \beta_2 X_{i2}+ \beta_3 X_{i3}+ \beta_4 X_{i4}+ \beta_5 X_{i5}+ \beta_6 X_{i6}+ \beta_7 X_{i7}+ \beta_8 X_{i8} + E_i \ ,\ E_i\overset{iid}{\sim}\mathcal{N}(0, \sigma^2)$  
 
 A partir de los datos, se define: 
@@ -212,7 +223,7 @@ F_{01} \sim f_{1, 81}
 Se calcula el valor p:
 $$p\text{-}value = P(f_{1, 81} > F_{01})$$
 
-```{r}
+```{r, echo = FALSE}
 lh2 <- linearHypothesis(modelo1, "EDAD = 0")
 lh2[1, 3:6] <- c(" ", " ", " ", " ")
 kable(lh2)
@@ -250,16 +261,20 @@ En ambos casos su interpretación es la misma.
 De los gráficos studentizados buscamos evaluar el supuesto de varianza constante y carencia de ajuste 
 en el modelo.
 
-```{r}
+```{r, echo = FALSE}
 residualPlots(modelo1, type = "rstudent", tests = FALSE, fit = TRUE)
-
 ```
 
 En las gráficas de los residuos vs. covariables no se nota algún patrón en contra del supuesto de varianza constante. Por el otro lado, del gráfico de Residuales vs. variable respuesta (Longitud de permanecia), aunque se cumple el supuesto de varianza constante, hay motivos para creer que se presencia una carencia de ajuste debido al patrón cuadrático.
 
 ## 6. Gráfica de probabilidad normal para los residuales estudentizados.
 
-```{r}
+Se encuentra el estadístico W de la prueba de Shapiro-Wilk asociada a la normalidad de los datos definida a continuación:
+
+$H_o:$ Los datos son normales. $vs$
+$H_1:$ Los datos son no normales.
+
+```{r, echo =FALSE}
 test <- shapiro.test(rstudent(modelo1))
 qqnorm(rstudent(modelo1),cex=1)
 qqline(rstudent(modelo1),col=2)
@@ -272,35 +287,36 @@ De acuerdo a la prueba de bondad de ajuste Shapito-Wilks, los errores studentiza
 ## 7. Diagnóstico de la presencia de observaciones atípicas, de balanceo y/o influenciales.
 
 Se crea una tabla con las medidas de influencia:
-```{r}
-infIndexPlot(modelo1)
-influencePlot(modelo1)
 
+```{r, echo = FALSE}
+inf_ind_plot = infIndexPlot(modelo1)
+inf_plot = influencePlot(modelo1)
 ```
+
 ```{r}
 IDs <- datos$ID
-IDs[22]
+print(IDs[22])
 ```
 
 Como lo ilustran las gráficas y la tabla correspondiente, la observación con índice 22, i.e. el hospital con ID 47, es una observación atípica.
 
-```{r}
+```{r, include= FALSE}
 influencias_modelo1 <- influence.measures(modelo1)
 influencias_modelo1 <- (influencias_modelo1$infmat)
 influencias_modelo1 <- cbind(influencias_modelo1, std.res = rstandard(modelo1), stud.res = rstudent(modelo1))
 ```
 
-```{r}
+```{r, echo = FALSE}
 criterioHat <- 2*(8+1)/90
 balanceo <- hatvalues(modelo1) > criterioHat
-IDs[balanceo]
+print(IDs[balanceo])
 
 ```
 Según el criterio de los hat-values: $h_{ii} > 0.2$, las observaciones de balanceo son aquellos hospitales con ID 13, 66, 104, 112, 8, 48, 54, 53 y 46.
 
 ### Observaciones influyentes según las distancias de cook:
 
-```{r}
+```{r, echo=FALSE}
 which(influencias_modelo1[,"cook.d"] > 1)
 ```
 Según el criterio de las distancias de cook no se tienen observaciones influyentes.
@@ -309,13 +325,13 @@ Según el criterio de las distancias de cook no se tienen observaciones influyen
 
 Según el criterio de los DFBetas las siguientes observaciones son cándidatos a influyentes:
 
-```{r}
+```{r,echo=FALSE}
 influencias_modelo1 <- as.data.frame(influencias_modelo1)
 influenciales_dfbetas <- which(abs(influencias_modelo1[,1:9])> (2/sqrt(90)),arr.ind = TRUE)
 kable(influencias_modelo1[unique(influenciales_dfbetas[, "row"]), 1:9])
 ```
-```{r}
-IDs[unique(influenciales_dfbetas[, "row"])]
+```{r, echo=FALSE}
+print(IDs[unique(influenciales_dfbetas[, "row"])])
 ```
 Estas corresponden a los hospitales con los IDs 47, 75, 43, 65, 106, 63, 33, 8, 26 ,112, 62, 1, 48, 46 y 69.
 
@@ -323,12 +339,12 @@ Estas corresponden a los hospitales con los IDs 47, 75, 43, 65, 106, 63, 33, 8, 
 
 Según los dffits se tiene que las siguientes observaciones son candidatas a influenciales:
 
-```{r}
+```{r, echo=FALSE}
 influencias_dffits <- which(abs(influencias_modelo1[, "dffit"])>(2*(sqrt(9/90))))
 kable(cbind(influencias_dffits,influencias_modelo1[ influencias_dffits,c("dffit")]))
 ```
-```{r}
-toString(IDs[influencias_dffits])
+```{r, echo=FALSE}
+print(toString(IDs[influencias_dffits]))
 ```
 Estas corresponden a los hospitales con los IDs 47, 112, 8, 43, 106, 46, 63.
 
@@ -336,12 +352,12 @@ Estas corresponden a los hospitales con los IDs 47, 112, 8, 43, 106, 46, 63.
 
 Se verifica que $90>3(9)$, luego se puede concluir que una observación será cándidata a ser influencial sí $|COVRATIO_i-1|>\frac{3(9)}{90}$, así, las siguientes observaciones son candidatas a ser influenciales:
 
-```{r}
+```{r, echo=FALSE}
 influenciales_covratio <- which(abs(influencias_modelo1[, "cov.r"] -1)> (3*9/90))
 kable(covratio(modelo1)[influenciales_covratio])
 ```
-```{r}
-toString(IDs[influenciales_covratio])
+```{r, echo=FALSE}
+print(toString(IDs[influenciales_covratio]))
 ```
 Estas corresponden a los hospitales con los IDs 13, 66, 104, 47, 112, 8, 54, 109, 40, 43, 53, 110, 46.
 
@@ -351,19 +367,18 @@ Por otro lado, el hospital con $ID = 112$ es considerado un punto de balanceo. A
 
 Se ajusta un modelo para los datos sin incluir las observaciones cuyo ID no es 47 ni 112:
 
-```{r}
+```{r, echo=FALSE}
 datos2 <- scale(datosNumericos[-c(22,23),])
 modelo2 <- lm(update( rlm_formula ,~.+0 ), data = as.data.frame(datos2))
-
 ```
 
 Se presenta la tabla de parámetros ajustados:
 
-```{r}
+```{r, echo=FALSE}
 tablaParas2 <- summary(modelo2)$coefficients
 kable(tablaParas2, caption = "Tabla de Parámetros estandarizados sin obs. con ID 47 y 112")
 ```
-```{r}
+```{r, echo=FALSE}
 datos1 <- scale(datosNumericos)
 modelo11 <- lm(update(rlm_formula ,~.+0 ), data = as.data.frame(datos1))
 tablaParas1 <- summary(modelo11)$coefficients
@@ -372,7 +387,8 @@ kable(tablaParas1, caption = "Tabla de parámetros con todas las observaciones e
 
 En las siguiente tabla se muestra el error relativo del modelo sin las observciones con ID = 47 y 112 con respecto al modelo con todos las observaciones.
 ```{r}
-(tablaErrorRelativo <- abs(tablaParas1-tablaParas2)/tablaParas1)
+tablaErrorRelativo <- abs(tablaParas1-tablaParas2)/tablaParas1
+kable(tablaErrorRelativo)
 ```
 Se observa que la estimación de $\beta_3, \beta_5, \beta_6, \beta_7$ cambia en más del 20% con respecto a la estimación original con todas las observaciones en unidades estándar.
 Solo el error estándar de la estimación de $\beta_6$ aumenta en más de un 20% con respecto a la estimación original con todas las observaciones en unidades estándar.
@@ -380,7 +396,7 @@ Con un nivel de significancia del 5%, el modelo sin las observaciones $ID = 47 y
 
 
 ### Gráfico de normalidad para los residuales estudentizados:
-```{r}
+```{r, echo=FALSE}
 test2 <- shapiro.test(rstudent(modelo2))
 qqnorm(rstudent(modelo2),cex=1)
 qqline(rstudent(modelo2),col=2)
@@ -403,7 +419,7 @@ kable(correlaciones)
 
 Buscamos los pares de variables cuya correlación sea superior 0.9, para facilitar esto se crea un mapa de calor de correlaciones:
 
-```{r}
+```{r,echo=FALSE}
 corrplot(correlaciones, method = c('number'))
 ```
 
@@ -436,48 +452,157 @@ Según las proporciones de descomposición de varianza, existen problemas de mul
 
 ## 9. Selección de modelo:
 
-### Tabla de todas las regresiones posibles:
+### Tabla de todas las regresiones posibles, con los datos sin centrar y sin las observaciones con ID igual a 47 y 112:
 ```{r, include=FALSE}
-#regresiones  <- ols_step_all_possible(modelo2)
+datos_depurados <- datosNumericos[! datos$ID %in% c(47,112),]
+modelo_atipico <- lm(formula = rlm_formula, data = datos_depurados)
+#regresiones  <- ols_step_all_possible(modelo_atipico)
 regresiones <- readRDS('regresiones.RDS')
 
 ```
 
-```{r}
-kable(head(regresiones, 10))
+```{r,echo=FALSE}
+kable(head(regresiones[,1:7], 10))
+```
+### Gráfica de los modelos que más destacan acorde a su criterio de selección
+
+```{r, echo =FALSE}
+plots = plot(regresiones)
+plots
 ```
 
-```{r}
-plot(regresiones)
+### Selección de modelo según el $R^2_{adj}$ :
+
+Según el criterio del $R^2_{adj}$ y el principio de parsimonia, se elige el modelo con indice 163 en la tabla de todos los modelos de regresión, ya que el crecimiento en el $R^2_{adj}$ no es tan grande al añadir más de 5 variables. 
+
+El modelo con 5 covariables que tiene el $R^2_{adj}$ más alto, es el modelo que está compuesto de las covariables Edad, riesgo de infección, número de camas, censo promedio diario y la Razón de rutina de rayos X del pecho. 
+
+```{r, echo=FALSE}
+regresion_r2 <- regresion(regresiones[163, ], datos_depurados)
 ```
-
-
-### Selección de modelo según el $R^2_{adj}$:
-
-Según el criterio del $R^2_{adj}$ y el principio de parcimonia, se elige el modelo con indice 163 en la tabla de todos los modelos de regresión, ya que el crecimiento en el $R^2_{adj}$ no es tan grande al añadir más de 5 variables. 
-
-El modelo con 5 covariables que tiene el $R^2_{adj}$ más alto, es el modelo que está compuesto de las covariables "EDAD RINF RRX NCAMAS PDP"
-```{r}
-r2_formula <- regresiones[163, ]$predictors
-r2_formula <- str_split(r2_formula, " ")[[1]]
-(formula_r2 <- paste("DPERM ~ ",paste(r2_formula, collapse= " + ")))
+#### Resumen númerico del modelo seleccionado usando el $R^2_{adj}$
+```{r, echo=FALSE}
+kable(summary(regresion_r2)$coefficients)
+kable(summary(regresion_r2)$adj.r.squared, col.names = '$R^2$ ajustado')
 ```
-
+#### ANOVA del modelo seleccionado usando el $R^2_{adj}$
+```{r, echo=FALSE}
+kable(myAnova(regresion_r2))
+```
 
 ### Selección de modelo según el estadístico $C_p$
+```{r, echo=FALSE}
+modelos_cp <- c(1, 9, 37, 93, 163, 219, 247, 255)
+modelos_Cps <- regresiones[modelos_cp, c('predictors','n','cp')]
+modelos_Cps <- as.data.frame(modelos_Cps)
+modelos_Cps$abs <- abs(modelos_Cps$cp - modelos_Cps$n)
+kable(modelos_Cps)
+```
+Según el criterio de los $C_p$ el modelo con el menor valor posible en $C_p$, tal que acorde al principio de parcimonia $|C_p-p|$ es minimo es el modelo que es explicado por la edad, el riesgo de infección, la razón de rutina de cultivos, el número de camas, la razón de rutina de rayos X del pecho y el censo promedio diario. Se muestra una tabla de resumen de parámetros y su respectiva tabla ANOVA.
 
-
-
+#### Resumen númerico del modelo seleccionado usando el criterio de $C_p$
+```{r, echo=FALSE}
+regresion_cp <- regresion(regresiones[219, ], datos_depurados)
+kable(summary(regresion_cp)$coefficients)
+kable(summary(regresion_cp)$adj.r.squared, col.names = '$R^2$ ajustado')
+```
+#### ANOVA del modelo seleccionado usando el $C_p$
+```{r, echo=FALSE}
+kable(myAnova(regresion_cp))
+```
 ### Selección de modelo según el metodo Stepwise:
-
- 
+#### Resumen del algoritmo Stepwise:
+```{r, echo=FALSE}
+modelo_stepwise = ols_step_both_p(modelo_atipico)
+print(modelo_stepwise)
+```
+#### Resumen númerico del modelo seleccionado usando el algoritmo stepwise:
+```{r, echo =FALSE}
+kable(summary(modelo_stepwise$model)$coefficients)
+kable(summary(modelo_stepwise$model)$adj.r.squared, col.names = '$R^2$ ajustado')
+```
+#### ANOVA del modelo seleccionado usando el algoritmo stepwise:
+```{r, echo = FALSE}
+kable(myAnova(modelo_stepwise$model))
+```
 ### Selección mediante el metodo forward:
-
+#### Resumen del algoritmo forward:
+```{r, echo = FALSE}
+modelo_forward = ols_step_forward_p(modelo_atipico)
+print(modelo_forward)
+```
+#### Resumen númerico del modelo seleccionado usando el algoritmo forward:
+```{r, echo=FALSE}
+kable(summary(modelo_forward$model)$coefficients)
+kable(summary(modelo_forward$model)$adj.r.squared, col.names = '$R^2$ ajustado')
+```
+#### ANOVA del modelo seleccionado usando el algoritmo forward:
+```{r, echo=FALSE}
+kable(myAnova(modelo_forward$model))
+```
 ###  Selección mediante el método backward:
+#### Resumen del algoritmo backward:
+```{r, echo =FALSE}
+modelo_backward = ols_step_backward_p(modelo_atipico)
+print(modelo_forward)
+```
+#### Resumen númerico del modelo seleccionado usando el algoritmo backward:
+```{r, echo =FALSE}
+kable(summary(modelo_backward$model)$coefficients)
+kable(summary(modelo_backward$model)$adj.r.squared, col.names = '$R^2$ ajustado')
+```
 
+#### ANOVA del modelo seleccionado usando el algoritmo backward:
+
+```{r, echo=FALSE}
+kable(myAnova(modelo_backward$model))
+```
 
 ## 10. ¿Cuál modelo sugiere para la variable respuesta?
 
+Al analizar el número de variables que arrojan los métodos de selección automáticos se observa un alto número de predictoras para este contexto, por lo que se descartan los modelos sugeridos por estos métodos.
 
+Se observan valores similares para el $R^2$ ajustado tanto en el modelo propuesto por $C_p$, cómo para el modelo propuesto por $R^2_{adj}$, así que por principio de parsimonia se decanta por el modelo propuesto por el $R^2_{adj}$. Aún así, se encuentran incorformidades con el modelo propuesto, pues en un análisis previo se encontraron problemas de colinealidad asociados a las variables censo promedio diario y número de camas.
+
+Se realiza un ajuste del modelo propuesto y la verificación de sus supuestos:
+
+### Ajuste de modelo de regresión lineal  multiple para el modelo explicado por la Edad, el riesgo de infección, ratio de rayos X en el pecho, número de camas y censo promedio diario:
+
+Se ajusta un modelo de regresión lineal múltiple con las variables propuestas y se muestra su resumen númerico:
+
+$$\hat{y}_i=2.5521+0.0610 \cdot x_{i1}+0.4158 \cdot x_{i2}+ 0.0176 \cdot x_{i4}-0.0065 \cdot x_{i5}+0.0114 \cdot x_{i6}. i =1,...,90.$$
+
+```{r, echo=FALSE}
+kable(summary(regresion_r2)$coefficients)
+kable(summary(regresion_r2)$adj.r.squared, col.names = '$R^2$ ajustado')
+```
+
+### Prueba de hipótesis para la significancia de la regresión del modelo propuesto:
+
+Se evalúa la significancia de la regresión a partir de su tabla ANOVA:
+```{r, echo=FALSE}
+kable(myAnova(regresion_r2))
+```
+Según el valor p de la prueba F se observa que la regresión sí es significativa.
+
+### Verificación del supuesto de normalidad en los residuales:
+
+```{r}
+test <- shapiro.test(rstudent(regresion_r2))
+qqnorm(rstudent(regresion_r2),cex=1)
+qqline(rstudent(regresion_r2),col=2)
+legend("topleft",legend=rbind(c("Statistic W","p.value"),round(c(test$statistic,test$p.value),digits=5)),cex=1.2)
+```
+
+Se observa un mejor ajuste en la normalidad de los datos, sin embargo, al final de la linea se sigue observando un ligero desajuste. 
+Aún así, se observa un mejor valor en el estadístico de la prueba de Shapiro-Wilk, por lo que se considera que en este caso sí se cumple el supuesto de normalidad en los residuales.
+
+### Verificación del supuesto de varianza constante:
+
+```{r}
+residualPlots(regresion_r2, type = "rstudent", tests = FALSE, fit = TRUE)
+```
+
+Se observa que se cumple aparentemente con el supuesto de varianza constante.
 
  
