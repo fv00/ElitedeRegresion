@@ -1,0 +1,70 @@
+---
+title: "Parte II"
+author: "Alejandro Salazar Mejía"
+date: "24/8/2021"
+output: html_document
+---
+
+```{r}
+library(car)
+library(perturb)
+library(leaps)
+library(olsrr)
+library(knitr)
+library(rsm)
+```
+
+### Lectura de datos
+```{r}
+datos <- read.table("APC1modifm3.csv", header = T, sep = ";", dec = ",",
+                    colClasses = c(rep("numeric",7),
+                                   "factor",rep("numeric",3),"factor"))
+```
+
+```{r}
+datosII <- datos[-c(22,23),c("DPERM", "RRX", "REGION")]
+attach(datosII)
+```
+
+### Análisis inicial
+```{r}
+REGION <- relevel(REGION, ref = "4")
+modelo <- lm(DPERM ~ RRX*REGION)
+```
+```{r}
+plot(RRX,DPERM,pch=as.numeric(REGION),col=as.numeric(REGION),
+xlab="Razón de rutina de rayos X del pecho (%)",
+ylab="Longitud de permanencia (días)",cex=1,cex.lab=1.5)
+legend("topleft",legend=c("R4","R1","R2","R3"),pch=c(1:4),col=c(1:4),cex=1)
+```
+
+```{r}
+plot(RRX,DPERM,pch=as.numeric(REGION),col=as.numeric(REGION),
+xlab="Razón de rutina de rayos X del pecho (%)",
+ylab="Longitud de permanencia (días)",cex=1,cex.lab=1.5)
+legend("topleft",legend=c("R4","R1","R2","R3"),pch=c(1:4),col=c(1:4),cex=1)
+
+lines(RRX[REGION=="4"],fitted(modelo)[REGION=="4"],col=1,lwd=1)
+lines(RRX[REGION=="1"],fitted(modelo)[REGION=="1"],col=2,lwd=1)
+lines(RRX[REGION=="2"],fitted(modelo)[REGION=="2"],col=3,lwd=1)
+lines(RRX[REGION=="3"],fitted(modelo)[REGION=="3"],col=4,lwd=1.5)
+
+```
+
+```{r}
+summary(modelo)
+confint(modelo)
+```
+
+### Punto 1:
+Consideremos las siguientes variables:  
+$Y_i:$ i-ésima observación de la variable respuesta 'Longitud de permanencia' (DPERM).  
+$X_{i}:$ i-ésima observación de la variable predictoria 'Razón de rutina de rayos X del pecho' (RRX).  
+$R_{i1}:$ 1 si la i-ésima observación pertenece a la región 1 = NE, ó 0 en otro caso.  
+$R_{i2}:$ 1 si la i-ésima observación pertenece a la región 2 = NC, ó 0 en otro caso.  
+$R_{i3}:$ 1 si la i-ésima observación pertenece a la región 3 = S, ó 0 en otro caso.  
+  
+  
+Si se espera una diferencia entre las rectas de DPERM VS. RRX que corresponden a las cuatro regiones, el modelo apropiado sería:  
+$$Y_i = \beta_0 + \beta_1 X_{i}+ \beta_2 R_{i1}+ \beta_3 R_{i2}+ \beta_4 R_{i3}+ \beta_{1,1} X_{i} R_{i1} + \beta_{1,2} X_{i} R_{i2} + \beta_{1,3} X_{i} R_{i3} + E_i \ ,
+\ E_i\overset{iid}{\sim}\mathcal{N}(0, \sigma^2)$$
