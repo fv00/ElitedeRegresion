@@ -160,8 +160,8 @@ $$ p \textrm{-} value_j = P(|t_{81}| > \lvert T_{0j} \rvert).$$
 Se crea una tabla de coeficientes asociados a cada covariable, que incluye el valor de su estadístico t y el valor p de su prueba de hipótesis.
 
 ```{r, echo=FALSE}
-kable(summary(modelo1)$coefficients[-1,-2],
-      col.names = c("Estimación", 'Estadístico t', 'Valor p'))
+render1 <- kable(summary(modelo1)$coefficients[-1,-2],
+      col.names = c("Estimación", 'Estadístico t', 'Valor p'), format = 'latex')
 ```
 De la tabla anterior se concluye que utilizando la prueba t los parámetros $\beta_3$ y $\beta_8$ no son significativos, es decir que la "Razón de rutina de cultivos" y "Facilidades y servicios disponibles" no ayudan a explicar la variabilidad de la "Longitud de permanencia" dado que las demás covariables no se encuentran en el modelo.
 
