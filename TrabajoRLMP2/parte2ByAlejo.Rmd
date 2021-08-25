@@ -68,3 +68,93 @@ $R_{i3}:$ 1 si la i-ésima observación pertenece a la región 3 = S, ó 0 en ot
 Si se espera una diferencia entre las rectas de DPERM VS. RRX que corresponden a las cuatro regiones, el modelo apropiado sería:  
 $$Y_i = \beta_0 + \beta_1 X_{i}+ \beta_2 R_{i1}+ \beta_3 R_{i2}+ \beta_4 R_{i3}+ \beta_{1,1} X_{i} R_{i1} + \beta_{1,2} X_{i} R_{i2} + \beta_{1,3} X_{i} R_{i3} + E_i \ ,
 \ E_i\overset{iid}{\sim}\mathcal{N}(0, \sigma^2)$$
+
+### Punto 2:
+```{r}
+cbind(summary(modelo)$coefficients, confint(modelo))
+```
+
+La ecuación ajustada sería:
+$$\widehat{Y_i} = 8.513363 - 0.002846 X_{i} - 2.420080 R_{i1}-0.103785 R_{i2} -1.755731 R_{i3}+ 0.051447 X_{i} R_{i1} +0.017477 X_{i} R_{i2} + 0.036165 X_{i} R_{i3}$$
+
+Recta para cada región:  
+
+* Región 1: $R_{i1}=1, R_{i2}=0, R_{i3}=0$  
+El modelo sería:
+$$Y_i = (\beta_0 + \beta_2) +  (\beta_1 + \beta_{1,1}) X_{i}+ E_i \ ,\ E_i\overset{iid}{\sim}\mathcal{N}(0, \sigma^2)$$
+Ecuación ajustada:
+$$\widehat{Y_i} = 8.513363 - 0.002846 X_{i} - 2.420080+ 0.051447 X_{i} = 6.093283+ 0.048601 X_{i}$$
+```{r}
+lm(DPERM[REGION=="1"]~RRX[REGION=="1"])
+```
+
+* Región 2: $R_{i1}=0, R_{i2}=1, R_{i3}=0$  
+El modelo sería:
+$$Y_i = (\beta_0 + \beta_3) +  (\beta_1 + \beta_{1,2}) X_{i}+ E_i \ ,\ E_i\overset{iid}{\sim}\mathcal{N}(0, \sigma^2)$$
+Ecuación ajustada:
+$$\widehat{Y_i} = 8.513363 - 0.002846 X_{i} -0.103785 +0.017477 X_{i} = 8.409578 + 0.014631  X_{i}$$
+```{r}
+lm(DPERM[REGION=="2"]~RRX[REGION=="2"])
+```
+
+* Región 3: $R_{i1}=0, R_{i2}=0, R_{i3}=1$  
+El modelo sería:
+$$Y_i = (\beta_0 + \beta_4) +  (\beta_1 + \beta_{1,3}) X_{i}+ E_i \ ,\ E_i\overset{iid}{\sim}\mathcal{N}(0, \sigma^2)$$
+Ecuación ajustada:
+$$\widehat{Y_i} = 8.513363 - 0.002846 X_{i} -1.755731+ 0.036165 X_{i} = 6.757632+ 0.033319 X_{i}$$
+```{r}
+lm(DPERM[REGION=="3"]~RRX[REGION=="3"])
+```
+
+* Región 4: $R_{i1}=0, R_{i2}=0, R_{i3}=0$  
+El modelo sería:
+$$Y_i = \beta_0 +  \beta_1 X_{i}+ E_i \ ,\ E_i\overset{iid}{\sim}\mathcal{N}(0, \sigma^2)$$
+Ecuación ajustada:
+$$\widehat{Y_i} = 8.513363 - 0.002846 X_{i}$$
+```{r}
+lm(DPERM[REGION=="4"]~RRX[REGION=="4"])
+```
+
+### Punto 3:
+```{r}
+#win.graph(width=8.5,height=5)
+residualPlots(modelo,groups=REGION,type="rstudent",linear=F,cex=1.5,pch=1:3,col=1:3)
+#win.graph(width=9,height=4.7)
+layout(cbind(c(1),c(2)))
+plot(rstudent(modelo)~REGION,border=1:3)
+abline(h=c(-2,0,2),lty=3)
+
+test=shapiro.test(rstudent(modelo))
+qqnorm(rstudent(modelo),pch=as.numeric(REGION),cex=1.5,col=as.numeric(REGION))
+qqline(rstudent(modelo))
+legend("topleft",legend=rbind(c("Statistic W","p.value"),
+round(c(test$statistic,test$p.value),digits=4)),cex=0.8)
+```
+
+### Punto 4:
+Las ordenadas al origen son los interceptos. Dadas las ecuaciones por cada región encontradas en el Punto 2, determinar si existe diferencia entre las ordenadas en el origen de las rectas correspondientes a las regiones es equivalente a probar:
+$$\beta_0 + \beta_2 =\beta_0 + \beta_3= \beta_0 + \beta_4 = \beta_0 \Leftrightarrow
+\beta_2 = \beta_3 = \beta_4 = 0$$
+```{r}
+names(coef(modelo))
+```
+Para esto basta con realizar una prueba de significancia simultanea para probar
+$H_0:\beta_2 = \beta_3 = \beta_4 = 0\ \ vs.\ \ H_1: \beta_i \neq 0$, para algún $i=2,3,4.$
+```{r}
+linearHypothesis(modelo, c("REGION1 = 0", "REGION2 = 0", "REGION3 = 0"))
+```
+No se rechaza $H_0$. No existe diferencia entre las ordenadas en el origen de las rectas correspondientes a las regiones.
+
+### Punto 5
+Dadas las ecuaciones por cada región encontradas en el Punto 2, determinar si existe diferencia en las pendientes de las rectas correspondientes a las regiones es equivalente a probar:
+$$\beta_1 + \beta_{1,1} =\beta_1 + \beta_{1,2}= \beta_1 + \beta_{1,3} = \beta_1 \Leftrightarrow
+\beta_{1,1} = \beta_{1,2} = \beta_{1,3} = 0$$
+```{r}
+names(coef(modelo))
+```
+Para esto basta con realizar una prueba de significancia simultanea para probar
+$H_0:\beta_{1,1} = \beta_{1,2} = \beta_{1,3} = 0\ \ vs.\ \ H_1: \beta_{1,i} \neq 0$, para algún $i=1,2,3.$
+```{r}
+linearHypothesis(modelo, c("RRX:REGION1 = 0", "RRX:REGION2 = 0", "RRX:REGION3 = 0"))
+```
+No se rechaza $H_0$. No existe diferencia en las pendientes de las rectas correspondientes a las regiones.
