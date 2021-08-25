@@ -40,8 +40,8 @@ legend("topleft",legend=c("R4","R1","R2","R3"),pch=c(1:4),col=c(1:4),cex=1)
 
 ```{r}
 plot(RRX,DPERM,pch=as.numeric(REGION),col=as.numeric(REGION),
-xlab="Razón de rutina de rayos X del pecho (%)",
-ylab="Longitud de permanencia (días)",cex=1,cex.lab=1.5)
+     xlab="Razón de rutina de rayos X del pecho (%)",
+     ylab="Longitud de permanencia (días)",cex=1,cex.lab=1.5)
 legend("topleft",legend=c("R4","R1","R2","R3"),pch=c(1:4),col=c(1:4),cex=1)
 
 lines(RRX[REGION=="4"],fitted(modelo)[REGION=="4"],col=1,lwd=1)
@@ -199,3 +199,80 @@ Por lo tanto, se rechaza $H_0$.
 
 
 ### Punto 7: 
+Probar si el efecto medio de RRX sobre DPERM es igual en las regiones 2, 3, y 4 implica igualdad en las pendientes de cada recta correspondiente del Punto 2. En términos de los coeficientes esto se traduce a probar si $\beta_1 + \beta_{1,2}= \beta_1 + \beta_{1,3} = \beta_1 \Leftrightarrow \beta_{1,2} = \beta_{1,3} = 0$.  
+Luego el juego de hipótesis será:
+
+$$H_0: \beta_{1,2} = \beta_{1,3} = 0 \ \ vs.\ \ H_1:\beta_{1,i} \neq 0 , \textrm{ para algun } i = 2,3$$
+
+```{r}
+linearHypothesis(modelo, c("RRX:REGION2 = 0", "RRX:REGION3 = 0"))
+```
+
+* Modelo reducido ($MR$): $$Y_i = \beta_0 + \beta_1 X_{i}+ \beta_2 R_{i1}+ \beta_3 R_{i2}+ \beta_4 R_{i3}+ \beta_{1,1} X_{i} R_{i1} + E_i \ ,
+\ E_i\overset{iid}{\sim}\mathcal{N}(0, \sigma^2)$$
+
+* Modelo completo ($MC$): $$Y_i = \beta_0 + \beta_1 X_{i}+ \beta_2 R_{i1}+ \beta_3 R_{i2}+ \beta_4 R_{i3}+ \beta_{1,1} X_{i} R_{i1} + \beta_{1,2} X_{i} R_{i2} + \beta_{1,3} X_{i} R_{i3} + E_i \ ,
+\ E_i\overset{iid}{\sim}\mathcal{N}(0, \sigma^2)$$
+
+* Estadístico de prueba:
+$$F_0 = \frac{SSR(X_{i} R_{i2}, X_{i} R_{i3}|X_i, R_{i1}, R_{i2}, R_{i3}, X_{i} R_{i1})/[gl(SSE(MR))-gl(SSE(MC))]}{MSE(MC)}$$
+$$=\frac{[133.40 - 128.96]/[82-80]}{128.96/80} = 1.3755$$
+
+No rechazamos $H_0$.  
+
+Ajuste del modelo reducido:
+```{r}
+matrizDise <- as.data.frame(model.matrix(modelo))
+modeloRed <- lm(DPERM ~ RRX + REGION1 + REGION2 + REGION3 + RRX:REGION1 ,data = matrizDise)
+```
+```{r}
+modeloRed
+```
+
+```{r}
+plot(RRX,DPERM,pch=as.numeric(REGION),col=as.numeric(REGION),
+     main = "Modelo Reducido",
+     xlab="Razón de rutina de rayos X del pecho (%)",
+     ylab="Longitud de permanencia (días)",cex=1,cex.lab=1.5)
+legend("topleft",legend=c("R4","R1","R2","R3"),pch=c(1:4),col=c(1:4),cex=1)
+
+lines(RRX[REGION=="4"],fitted(modeloRed)[REGION=="4"],col=1,lwd=1)
+lines(RRX[REGION=="1"],fitted(modeloRed)[REGION=="1"],col=2,lwd=1)
+lines(RRX[REGION=="2"],fitted(modeloRed)[REGION=="2"],col=3,lwd=1)
+lines(RRX[REGION=="3"],fitted(modeloRed)[REGION=="3"],col=4,lwd=1.5)
+```
+
+```{r}
+summary(modeloRed); confint(modeloRed)
+```
+
+La ecuación ajustada sería:
+$$\widehat{Y_i} = 7.152320 + 0.014497 X_{i}-1.059037 R_{i1}+ 1.268506 R_{i2}+ 1.028843 R_{i3}+ 0.034104 X_{i} R_{i1}$$
+
+Recta para cada región:  
+
+* Región 1: $R_{i1}=1, R_{i2}=0, R_{i3}=0$  
+El modelo sería:
+$$Y_i = (\beta_0 + \beta_2) +  (\beta_1 + \beta_{1,1}) X_{i}+ E_i \ ,\ E_i\overset{iid}{\sim}\mathcal{N}(0, \sigma^2)$$
+Ecuación ajustada:
+$$\widehat{Y_i} = 7.152320 + 0.014497 X_{i}-1.059037+ 0.034104 X_{i} = 6.093283 + 0.048601 X_{i} $$
+
+* Región 2: $R_{i1}=0, R_{i2}=1, R_{i3}=0$  
+El modelo sería:
+$$Y_i = (\beta_0 + \beta_3) + \beta_1 X_{i}+ E_i \ ,\ E_i\overset{iid}{\sim}\mathcal{N}(0, \sigma^2)$$
+Ecuación ajustada:
+$$\widehat{Y_i} = 7.152320 + 0.014497 X_{i}+ 1.268506 = 8.420826+ 0.014497 X_{i} $$
+
+
+* Región 3: $R_{i1}=0, R_{i2}=0, R_{i3}=1$  
+El modelo sería:
+$$Y_i = (\beta_0 + \beta_4) + \beta_1 X_{i}+ E_i \ ,\ E_i\overset{iid}{\sim}\mathcal{N}(0, \sigma^2)$$
+Ecuación ajustada:
+$$\widehat{Y_i} = 7.152320 + 0.014497 X_{i}+ 1.028843 = 8.181163 + 0.014497 X_{i}$$
+
+* Región 4: $R_{i1}=0, R_{i2}=0, R_{i3}=0$  
+El modelo sería:
+$$Y_i = \beta_0 +  \beta_1 X_{i}+ E_i \ ,\ E_i\overset{iid}{\sim}\mathcal{N}(0, \sigma^2)$$
+Ecuación ajustada:
+$$\widehat{Y_i} = 7.152320 + 0.014497 X_{i}$$
+
