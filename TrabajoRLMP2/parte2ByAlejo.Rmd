@@ -1,11 +1,40 @@
 ---
-title: "Parte II"
-author: "Alejandro Salazar Mejía"
-date: "24/8/2021"
-output: html_document
+output: pdf_document
 ---
 
-```{r}
+\begin{titlepage}  
+\centering
+{\bfseries\LARGE Universidad Nacional de Colombia \par}
+\vspace{1cm}
+{\scshape\Large Facultad de Ciencias \par}
+\vspace{3cm}
+{\scshape\LARGE Análisis de Regresión \par}
+\vspace{3cm}
+{\itshape\Large Trabajo RLM: Parte II \par}
+\vfill
+{\Large Autores: \par}  
+\vspace{0.7cm}
+{\Large Santiago Franco Valencia \par}
+{\Large Juan Pablo Martínez Echavarria \par}
+{\Large Alejandro Salazar Mejía \par}
+\vfill
+{\Large Agosto 2021 \par}
+\end{titlepage}
+
+\newpage
+\begin{center}
+\begin{Large}
+\textbf{Solución}
+\end{Large}
+\end{center}
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, comment = "")
+opts <- options(knitr.kable.NA = "", digits = 3)
+```
+
+
+```{r, include=FALSE}
 library(car)
 library(perturb)
 library(leaps)
@@ -14,8 +43,9 @@ library(knitr)
 library(rsm)
 ```
 
-### Lectura de datos
+
 ```{r}
+# Lectura de datos
 datos <- read.table("APC1modifm3.csv", header = T, sep = ";", dec = ",",
                     colClasses = c(rep("numeric",7),
                                    "factor",rep("numeric",3),"factor"))
@@ -26,23 +56,20 @@ datosII <- datos[-c(22,23),c("DPERM", "RRX", "REGION")]
 attach(datosII)
 ```
 
-### Análisis inicial
+## 0. Análisis inicial
+
+Se realiza el gráfico de dispersión Longitud de permanencia promedio vs. Razón de rutina de rayos X del pecho discriminado por cada una de las 4 regiones. Además, por cada región se ajusta una recta a las observaciones respectivas.
+
 ```{r}
 REGION <- relevel(REGION, ref = "4")
 modelo <- lm(DPERM ~ RRX*REGION)
-```
-```{r}
-plot(RRX,DPERM,pch=as.numeric(REGION),col=as.numeric(REGION),
-xlab="Razón de rutina de rayos X del pecho (%)",
-ylab="Longitud de permanencia (días)",cex=1,cex.lab=1.5)
-legend("topleft",legend=c("R4","R1","R2","R3"),pch=c(1:4),col=c(1:4),cex=1)
 ```
 
 ```{r}
 plot(RRX,DPERM,pch=as.numeric(REGION),col=as.numeric(REGION),
      xlab="Razón de rutina de rayos X del pecho (%)",
-     ylab="Longitud de permanencia (días)",cex=1,cex.lab=1.5)
-legend("topleft",legend=c("R4","R1","R2","R3"),pch=c(1:4),col=c(1:4),cex=1)
+     ylab="Longitud de permanencia (días)",cex=1, cex.lab=1)
+legend("topleft",legend=c("R1","R2","R3", "R4"),pch=c(2:4,1),col=c(2:4,1),cex=1)
 
 lines(RRX[REGION=="4"],fitted(modelo)[REGION=="4"],col=1,lwd=1)
 lines(RRX[REGION=="1"],fitted(modelo)[REGION=="1"],col=2,lwd=1)
@@ -50,14 +77,20 @@ lines(RRX[REGION=="2"],fitted(modelo)[REGION=="2"],col=3,lwd=1)
 lines(RRX[REGION=="3"],fitted(modelo)[REGION=="3"],col=4,lwd=1.5)
 
 ```
+  
+  
+En las regiones 1 y 3, parece que la Razón de rutina de rayos X en el pecho y la longitud de permanencia están relacionadas positiva y ligeramente. Para las regiones 2 y 4 no parece que dicha relación exista.
 
-```{r}
+```{r, include=FALSE}
 summary(modelo)
 confint(modelo)
 ```
 
-### Punto 1:
+\newpage
+
+## 1. Modelo de regresión
 Consideremos las siguientes variables:  
+
 $Y_i:$ i-ésima observación de la variable respuesta 'Longitud de permanencia' (DPERM).  
 $X_{i}:$ i-ésima observación de la variable predictoria 'Razón de rutina de rayos X del pecho' (RRX).  
 $R_{i1}:$ 1 si la i-ésima observación pertenece a la región 1 = NE, ó 0 en otro caso.  
@@ -68,10 +101,19 @@ $R_{i3}:$ 1 si la i-ésima observación pertenece a la región 3 = S, ó 0 en ot
 Si se espera una diferencia entre las rectas de DPERM VS. RRX que corresponden a las cuatro regiones, el modelo apropiado sería:  
 $$Y_i = \beta_0 + \beta_1 X_{i}+ \beta_2 R_{i1}+ \beta_3 R_{i2}+ \beta_4 R_{i3}+ \beta_{1,1} X_{i} R_{i1} + \beta_{1,2} X_{i} R_{i2} + \beta_{1,3} X_{i} R_{i3} + E_i \ ,
 \ E_i\overset{iid}{\sim}\mathcal{N}(0, \sigma^2)$$
+  
+  
+## 2. Modelo Ajustado
+En la siguiente tabla se presentan los parámetros estimados, sus errores estándar y los límites inferior y superior de su respectivo I.C. al 95%.  
 
-### Punto 2:
 ```{r}
-cbind(summary(modelo)$coefficients, confint(modelo))
+tablaEstimaciones <- cbind(summary(modelo)$coefficients, confint(modelo))[,-c(3,4)]
+rownames(tablaEstimaciones) <- c("$\\beta_0$","$\\beta_1$", 
+                                 "$\\beta_2$" , "$\\beta_3$" , 
+                                 "$\\beta_4$" , "$\\beta_{1,1}$" , 
+                                 "$\\beta_{1,2}$" , "$\\beta_{1,3}$")
+  
+kable(tablaEstimaciones)
 ```
 
 La ecuación ajustada sería:
@@ -79,89 +121,127 @@ $$\widehat{Y_i} = 8.513363 - 0.002846 X_{i} - 2.420080 R_{i1}-0.103785 R_{i2} -1
 
 Recta para cada región:  
 
-* Región 1: $R_{i1}=1, R_{i2}=0, R_{i3}=0$  
+* **Región 1:** $R_{i1}=1, R_{i2}=0, R_{i3}=0$  
 El modelo sería:
 $$Y_i = (\beta_0 + \beta_2) +  (\beta_1 + \beta_{1,1}) X_{i}+ E_i \ ,\ E_i\overset{iid}{\sim}\mathcal{N}(0, \sigma^2)$$
 Ecuación ajustada:
 $$\widehat{Y_i} = 8.513363 - 0.002846 X_{i} - 2.420080+ 0.051447 X_{i} = 6.093283+ 0.048601 X_{i}$$
-```{r}
+```{r, include=FALSE}
 lm(DPERM[REGION=="1"]~RRX[REGION=="1"])
 ```
 
-* Región 2: $R_{i1}=0, R_{i2}=1, R_{i3}=0$  
+* **Región 2:** $R_{i1}=0, R_{i2}=1, R_{i3}=0$  
 El modelo sería:
 $$Y_i = (\beta_0 + \beta_3) +  (\beta_1 + \beta_{1,2}) X_{i}+ E_i \ ,\ E_i\overset{iid}{\sim}\mathcal{N}(0, \sigma^2)$$
 Ecuación ajustada:
 $$\widehat{Y_i} = 8.513363 - 0.002846 X_{i} -0.103785 +0.017477 X_{i} = 8.409578 + 0.014631  X_{i}$$
-```{r}
+```{r, include=FALSE}
 lm(DPERM[REGION=="2"]~RRX[REGION=="2"])
 ```
 
-* Región 3: $R_{i1}=0, R_{i2}=0, R_{i3}=1$  
+* **Región 3:** $R_{i1}=0, R_{i2}=0, R_{i3}=1$  
 El modelo sería:
 $$Y_i = (\beta_0 + \beta_4) +  (\beta_1 + \beta_{1,3}) X_{i}+ E_i \ ,\ E_i\overset{iid}{\sim}\mathcal{N}(0, \sigma^2)$$
 Ecuación ajustada:
 $$\widehat{Y_i} = 8.513363 - 0.002846 X_{i} -1.755731+ 0.036165 X_{i} = 6.757632+ 0.033319 X_{i}$$
-```{r}
+```{r, include=FALSE}
 lm(DPERM[REGION=="3"]~RRX[REGION=="3"])
 ```
 
-* Región 4: $R_{i1}=0, R_{i2}=0, R_{i3}=0$  
+* **Región 4:** $R_{i1}=0, R_{i2}=0, R_{i3}=0$  
 El modelo sería:
 $$Y_i = \beta_0 +  \beta_1 X_{i}+ E_i \ ,\ E_i\overset{iid}{\sim}\mathcal{N}(0, \sigma^2)$$
 Ecuación ajustada:
 $$\widehat{Y_i} = 8.513363 - 0.002846 X_{i}$$
-```{r}
+```{r, include=FALSE}
 lm(DPERM[REGION=="4"]~RRX[REGION=="4"])
 ```
 
-### Punto 3:
-```{r}
-#win.graph(width=8.5,height=5)
+## 3. Supuestos de normalidad y varianza constante
+
+El supuesto de varianza constante se analiza mediante los residuales para el modelo general. En la siguientes dos gráficas se muestran los residuales estudentizados vs. RRX y  vs. valores ajustados.  
+
+```{r, fig.width=12, fig.height=6}
+#win.graph(width=10,height=6)
 residualPlots(modelo,groups=REGION,type="rstudent",linear=F,cex=1.5,pch=1:3,col=1:3)
-#win.graph(width=9,height=4.7)
-layout(cbind(c(1),c(2)))
+```
+
+Observando los puntos conjuntamente, no hay patrones evidentes para creer que no se cumple el supuesto de varianza constante en los errores.  
+  
+En la Figura 1 podemos observar la distribución de los residuales discriminada por regiones, por medio de diagramas de cajas y pigotes. Se encuentra que la distribución de los residuales estudentizados es similar entre todas las regiones exceptuando la región 1 en donde se encuentran más dispersos.  
+  
+Se encuentra el estadístico $W_0$ de la prueba de Shapiro-Wilk asociada a la normalidad de los errores del modelo, y se evalúa la siguiente prueba de hipótesis: 
+$$H_0: E_i \sim N(0,\sigma^2) \ \ vs. \ \ H_1: E_i \nsim N(0,\sigma^2)$$ $$i=1,...,88$$
+
+En la Figura 2 se observa el estadístico W, su valor-p y la gráfica de normalidad. Se puede asumir que los errores son normales, sin embargo es evidente un ligero desajuste al inicio y al final de la recta.
+
+```{r, fig.width=4, fig.height=3.5, fig.align="center", fig.cap="Distribución de residuales por región"}
+par(mar = c(5.1, 4.1, 0, 1))
 plot(rstudent(modelo)~REGION,border=1:3)
 abline(h=c(-2,0,2),lty=3)
+```
 
+```{r, fig.cap="Gráfica de Normalidad", fig.width=5, fig.height=4.5}
+#win.graph(width=10,height=6)
+#layout(cbind(c(1),c(2)))
+par(mar = c(5.1, 4.1, 1.5, 1))
 test=shapiro.test(rstudent(modelo))
-qqnorm(rstudent(modelo),pch=as.numeric(REGION),cex=1.5,col=as.numeric(REGION))
+qqnorm(rstudent(modelo),pch=as.numeric(REGION),col=as.numeric(REGION))
 qqline(rstudent(modelo))
 legend("topleft",legend=rbind(c("Statistic W","p.value"),
 round(c(test$statistic,test$p.value),digits=4)),cex=0.8)
 ```
 
-### Punto 4:
+\newpage
+
+## 4. Diferencia entre las ordenadas en el origen
+
 Las ordenadas al origen son los interceptos. Dadas las ecuaciones por cada región encontradas en el Punto 2, determinar si existe diferencia entre las ordenadas en el origen de las rectas correspondientes a las regiones es equivalente a probar:
 $$\beta_0 + \beta_2 =\beta_0 + \beta_3= \beta_0 + \beta_4 = \beta_0 \Leftrightarrow
 \beta_2 = \beta_3 = \beta_4 = 0$$
-```{r}
+
+```{r, include = F}
 names(coef(modelo))
 ```
 Para esto basta con realizar una prueba de significancia simultanea para probar
 $H_0:\beta_2 = \beta_3 = \beta_4 = 0\ \ vs.\ \ H_1: \beta_i \neq 0$, para algún $i=2,3,4.$
-```{r}
-linearHypothesis(modelo, c("REGION1 = 0", "REGION2 = 0", "REGION3 = 0"))
-```
-No se rechaza $H_0$. No existe diferencia entre las ordenadas en el origen de las rectas correspondientes a las regiones.
 
-### Punto 5
+```{r}
+LH1 <- linearHypothesis(modelo, c("REGION1 = 0", "REGION2 = 0", "REGION3 = 0"))
+rownames(LH1) <- c("Modelo reducido", "Modelo completo")
+kable(LH1, caption = "Tabla Resumen de la Prueba de Hipótesis")
+```
+
+Como $V_p > 0.05$, no se rechaza $H_0$, es decir,no existe diferencia entre las ordenadas en el origen de las rectas correspondientes a las regiones.
+
+## 5. Diferencia en las pendientes de las rectas.
+
 Dadas las ecuaciones por cada región encontradas en el Punto 2, determinar si existe diferencia en las pendientes de las rectas correspondientes a las regiones es equivalente a probar:
 $$\beta_1 + \beta_{1,1} =\beta_1 + \beta_{1,2}= \beta_1 + \beta_{1,3} = \beta_1 \Leftrightarrow
 \beta_{1,1} = \beta_{1,2} = \beta_{1,3} = 0$$
-```{r}
+```{r, include=FALSE}
 names(coef(modelo))
 ```
+
 Para esto basta con realizar una prueba de significancia simultanea para probar
-$H_0:\beta_{1,1} = \beta_{1,2} = \beta_{1,3} = 0\ \ vs.\ \ H_1: \beta_{1,i} \neq 0$, para algún $i=1,2,3.$
+$H_0:\beta_{1,1} = \beta_{1,2} = \beta_{1,3} = 0\ \ vs.\ \ H_1: \beta_{1,i} \neq 0$, 
+para algún $i=1,2,3.$
+
 ```{r}
-linearHypothesis(modelo, c("RRX:REGION1 = 0", "RRX:REGION2 = 0", "RRX:REGION3 = 0"))
+LH2 <- linearHypothesis(modelo, 
+                        c("RRX:REGION1 = 0", "RRX:REGION2 = 0", "RRX:REGION3 = 0"))
+rownames(LH2) <- c("Modelo reducido", "Modelo completo")
+kable(LH2, caption = "Tabla Resumen de la Prueba de Hipótesis")
 ```
-No se rechaza $H_0$. No existe diferencia en las pendientes de las rectas correspondientes a las regiones.
 
+Como $V_p > 0.05$, no se rechaza $H_0$, es decir, no existe diferencia en las pendientes de las rectas correspondientes a las regiones. Por lo que se asume que la taza de cambio en la longitud de permanencia de un paciente dado una unidad de cambio en la razón de rutina de rayos X en el pecho es la misma para cada región.
 
-### Punto 6:
-Las rectas serán iguales si coinciden sus interceptos y sus pendientes, entonces se requiere que: $\beta_0 + \beta_2 =\beta_0 + \beta_3= \beta_0 + \beta_4 = \beta_0 \Leftrightarrow \beta_2 = \beta_3 = \beta_4 = 0$.  
+\newpage
+
+## 6. Diferencia entre rectas para cada región 
+
+Las rectas serán iguales si coinciden sus interceptos y sus pendientes, entonces se requiere que:  
+$\beta_0 + \beta_2 =\beta_0 + \beta_3= \beta_0 + \beta_4 = \beta_0 \Leftrightarrow \beta_2 = \beta_3 = \beta_4 = 0$.  
 También que: 
 $\beta_1 + \beta_{1,1} =\beta_1 + \beta_{1,2}= \beta_1 + \beta_{1,3} = \beta_1 \Leftrightarrow \beta_{1,1} = \beta_{1,2} = \beta_{1,3} = 0$ 
  
@@ -169,7 +249,10 @@ Luego se debe probar que:
 $$H_0: \beta_2 = \beta_3 = \beta_4 = \beta_{1,1} = \beta_{1,2} = \beta_{1,3} = 0 \ \ vs.$$
 $$H_1:\textrm{ al menos uno de los parametros } \beta_2, \beta_3, \beta_4, \beta_{1,1}, \beta_{1,2}, \beta_{1,3} \textrm{ es no nulo}$$
 ```{r}
-linearHypothesis(modelo, c("REGION1 = 0", "REGION2 = 0", "REGION3 = 0", "RRX:REGION1 = 0", "RRX:REGION2 = 0", "RRX:REGION3 = 0"))
+LH3 <- linearHypothesis(modelo, c("REGION1 = 0", "REGION2 = 0", "REGION3 = 0", "RRX:REGION1 = 0", "RRX:REGION2 = 0", "RRX:REGION3 = 0"))
+
+rownames(LH3) <- c("Modelo reducido", "Modelo completo")
+kable(LH3, caption = "Tabla Resumen de la Prueba de Hipótesis")
 ```
 
 * Modelo reducido ($MR$): $$Y_i = \beta_0 +  \beta_1 X_{i}+ E_i \ ,\ E_i\overset{iid}{\sim}\mathcal{N}(0, \sigma^2)$$
@@ -195,17 +278,21 @@ Teniendo en cuenta que es una prueba de cola superior, se rechaza $H_0$ si el es
 Haciendo los cálculos respectivos tenemos que:
 $$F_0 \in (F_{0.05,6,80}, +\infty) \Longleftrightarrow 4.1404 \in (2.2141, +\infty)$$
 
-Por lo tanto, se rechaza $H_0$.
+Se rechaza $H_0$ ya que $F_0$ pertenece a la región critica, concluyendo así que para al menos una región, la recta que modela la longitud de permanencia media con la razón de rutina de rayos X en el pecho es diferente al resto, estadísticamente.
 
+\newpage
 
-### Punto 7: 
+## 7. Efecto medio de RRX sobre DPERM en las regiones 2, 3, y 4.  
+
 Probar si el efecto medio de RRX sobre DPERM es igual en las regiones 2, 3, y 4 implica igualdad en las pendientes de cada recta correspondiente del Punto 2. En términos de los coeficientes esto se traduce a probar si $\beta_1 + \beta_{1,2}= \beta_1 + \beta_{1,3} = \beta_1 \Leftrightarrow \beta_{1,2} = \beta_{1,3} = 0$.  
 Luego el juego de hipótesis será:
 
 $$H_0: \beta_{1,2} = \beta_{1,3} = 0 \ \ vs.\ \ H_1:\beta_{1,i} \neq 0 , \textrm{ para algun } i = 2,3$$
 
 ```{r}
-linearHypothesis(modelo, c("RRX:REGION2 = 0", "RRX:REGION3 = 0"))
+LH4 <- linearHypothesis(modelo, c("RRX:REGION2 = 0", "RRX:REGION3 = 0"))
+rownames(LH4) <- c("Modelo reducido", "Modelo completo")
+kable(LH4, caption = "Tabla Resumen de la Prueba de Hipótesis")
 ```
 
 * Modelo reducido ($MR$): $$Y_i = \beta_0 + \beta_1 X_{i}+ \beta_2 R_{i1}+ \beta_3 R_{i2}+ \beta_4 R_{i3}+ \beta_{1,1} X_{i} R_{i1} + E_i \ ,
@@ -218,31 +305,32 @@ linearHypothesis(modelo, c("RRX:REGION2 = 0", "RRX:REGION3 = 0"))
 $$F_0 = \frac{SSR(X_{i} R_{i2}, X_{i} R_{i3}|X_i, R_{i1}, R_{i2}, R_{i3}, X_{i} R_{i1})/[gl(SSE(MR))-gl(SSE(MC))]}{MSE(MC)}$$
 $$=\frac{[133.40 - 128.96]/[82-80]}{128.96/80} = 1.3755$$
 
-No rechazamos $H_0$.  
+Como $V_p > 0.05$, no rechazamos $H_0$. Se concluye entonces que no existe evidencia para rechazar que las pendientes asociadas a las rectas de las regiones 2, 3 y 4 son iguales para cada región, es decir, que es posible asumir que el efecto medio de la razón de rutina de rayos X sobre la longitud de permanencia es el mismo para las regiones 2, 3 y 4, estadísticamente.  
 
-Ajuste del modelo reducido:
-```{r}
+
+### Ajuste del modelo reducido:
+```{r, include=FALSE}
 matrizDise <- as.data.frame(model.matrix(modelo))
 modeloRed <- lm(DPERM ~ RRX + REGION1 + REGION2 + REGION3 + RRX:REGION1 ,data = matrizDise)
 ```
-```{r}
+
+```{r, include=FALSE}
 modeloRed
 ```
 
-```{r}
-plot(RRX,DPERM,pch=as.numeric(REGION),col=as.numeric(REGION),
-     main = "Modelo Reducido",
-     xlab="Razón de rutina de rayos X del pecho (%)",
-     ylab="Longitud de permanencia (días)",cex=1,cex.lab=1.5)
-legend("topleft",legend=c("R4","R1","R2","R3"),pch=c(1:4),col=c(1:4),cex=1)
+En la siguiente tabla se presentan los parámetros estimados del modelo reducido, sus errores estándar y los límites inferior y superior de su respectivo I.C. al 95%.  
 
-lines(RRX[REGION=="4"],fitted(modeloRed)[REGION=="4"],col=1,lwd=1)
-lines(RRX[REGION=="1"],fitted(modeloRed)[REGION=="1"],col=2,lwd=1)
-lines(RRX[REGION=="2"],fitted(modeloRed)[REGION=="2"],col=3,lwd=1)
-lines(RRX[REGION=="3"],fitted(modeloRed)[REGION=="3"],col=4,lwd=1.5)
+```{r}
+tablaEstimacionesRed <- cbind(summary(modeloRed)$coefficients,
+                              confint(modeloRed))[,-c(3,4)]
+rownames(tablaEstimacionesRed) <- c("$\\beta_0$","$\\beta_1$", 
+                                 "$\\beta_2$" , "$\\beta_3$" , 
+                                 "$\\beta_4$" , "$\\beta_{1,1}$")
+  
+kable(tablaEstimacionesRed)
 ```
 
-```{r}
+```{r, include=FALSE}
 summary(modeloRed); confint(modeloRed)
 ```
 
@@ -251,28 +339,46 @@ $$\widehat{Y_i} = 7.152320 + 0.014497 X_{i}-1.059037 R_{i1}+ 1.268506 R_{i2}+ 1.
 
 Recta para cada región:  
 
-* Región 1: $R_{i1}=1, R_{i2}=0, R_{i3}=0$  
+* **Región 1:** $R_{i1}=1, R_{i2}=0, R_{i3}=0$  
 El modelo sería:
 $$Y_i = (\beta_0 + \beta_2) +  (\beta_1 + \beta_{1,1}) X_{i}+ E_i \ ,\ E_i\overset{iid}{\sim}\mathcal{N}(0, \sigma^2)$$
 Ecuación ajustada:
 $$\widehat{Y_i} = 7.152320 + 0.014497 X_{i}-1.059037+ 0.034104 X_{i} = 6.093283 + 0.048601 X_{i} $$
 
-* Región 2: $R_{i1}=0, R_{i2}=1, R_{i3}=0$  
+* **Región 2:** $R_{i1}=0, R_{i2}=1, R_{i3}=0$  
 El modelo sería:
 $$Y_i = (\beta_0 + \beta_3) + \beta_1 X_{i}+ E_i \ ,\ E_i\overset{iid}{\sim}\mathcal{N}(0, \sigma^2)$$
 Ecuación ajustada:
 $$\widehat{Y_i} = 7.152320 + 0.014497 X_{i}+ 1.268506 = 8.420826+ 0.014497 X_{i} $$
 
 
-* Región 3: $R_{i1}=0, R_{i2}=0, R_{i3}=1$  
+* **Región 3:** $R_{i1}=0, R_{i2}=0, R_{i3}=1$  
 El modelo sería:
 $$Y_i = (\beta_0 + \beta_4) + \beta_1 X_{i}+ E_i \ ,\ E_i\overset{iid}{\sim}\mathcal{N}(0, \sigma^2)$$
 Ecuación ajustada:
 $$\widehat{Y_i} = 7.152320 + 0.014497 X_{i}+ 1.028843 = 8.181163 + 0.014497 X_{i}$$
 
-* Región 4: $R_{i1}=0, R_{i2}=0, R_{i3}=0$  
+* **Región 4:** $R_{i1}=0, R_{i2}=0, R_{i3}=0$  
 El modelo sería:
 $$Y_i = \beta_0 +  \beta_1 X_{i}+ E_i \ ,\ E_i\overset{iid}{\sim}\mathcal{N}(0, \sigma^2)$$
 Ecuación ajustada:
-$$\widehat{Y_i} = 7.152320 + 0.014497 X_{i}$$
+$$\widehat{Y_i} = 7.152320 + 0.014497 X_{i}$$  
+  
+  
+```{r, fig.width=6, fig.height=5}
+par(mar = c(4.1, 4.1, 1.5, 0))
 
+plot(RRX,DPERM,pch=as.numeric(REGION),col=as.numeric(REGION),
+     main = "Modelo Reducido",
+     xlab="Razón de rutina de rayos X del pecho (%)",
+     ylab="Longitud de permanencia (días)")
+legend("topleft",legend=c("R4","R1","R2","R3"),pch=c(1:4),col=c(1:4),cex=1)
+
+lines(RRX[REGION=="4"],fitted(modeloRed)[REGION=="4"],col=1,lwd=1)
+lines(RRX[REGION=="1"],fitted(modeloRed)[REGION=="1"],col=2,lwd=1)
+lines(RRX[REGION=="2"],fitted(modeloRed)[REGION=="2"],col=3,lwd=1)
+lines(RRX[REGION=="3"],fitted(modeloRed)[REGION=="3"],col=4,lwd=1.5)
+```
+  
+  
+En esta figura se observa el modelo reducido ajustado, en dónde las pendientes asociadas a las regiones 2, 3 y 4 son iguales, pero sus interceptos son diferentes.
